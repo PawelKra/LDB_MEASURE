@@ -1,0 +1,41 @@
+******************************************************************
+*** TSAP CROSS-DATING     ***  DATE:  2020.01.11  TIME: 12.20. ***
+-> Find match of sample and references:
+-> MinLeftOverlap=20 / MinRightOverlap=20
+-> Chrono signature conditions: Density>4 / Internal Glk>75
+-> Results listed for all samples and all references.
+-> List 20 best matches.
+-> Match acceptance: logical OR - connection of threshold values,
+   one of the following threshold values has to be exceeded.
+   Threshold conditions:
+   Glk%>60  SGlk%>70  SSGlk%>70  TV>3,0  CrC>0,6  CDI>10
+------------------------------------------------------------------
+
+Sample    (=Single): 2STOB10                  0    -   0       95  1711  1805 
+Reference (=HalfCh): 2STOB7-0-0                 0    -   0      114  1688  1801 
+
+  Sample     Ref.  PosL  PosR   OVL Glk GSL _SG S_G SSG SSi RSi  %CC    TV  TVBP  TVH    CDI  DateL  DateR 
+2STOB10  2STOB7-0-0    58   152    57  70 **    0   0   0   0   0   62   5,9   3,7   3,5    21   1745   1839 
+2STOB10  2STOB7-0-0    24   118    91  62 **    0   0   0   0   0   27   2,6   3,0   3,5    20   1711   1805 
+2STOB10  2STOB7-0-0    11   105    95  62 **    0   0   0   0   0   -6   0,6   3,0   2,9    18   1698   1792 
+2STOB10  2STOB7-0-0     9   103    95  42       0   0   0   0   0  -22   2,2   3,4   2,7    13   1696   1790 
+2STOB10  2STOB7-0-0    32   126    83  56       0   0   0   0   0   17   1,6   2,3   1,9    11   1719   1813 
+2STOB10  2STOB7-0-0   -41    53    54  66 **    0   0   0   0   0   31   2,3   1,6   2,0    10   1647   1741 
+2STOB10  2STOB7-0-0    16   110    95  54       0   0   0   0   0    3   0,3   2,1   1,6    10   1703   1797 
+2STOB10  2STOB7-0-0    41   135    74  60 *     0   0   0   0   0   27   2,4   1,4   1,4     8   1728   1822 
+2STOB10  2STOB7-0-0   -52    42    43  64 *     0   0   0   0   0    4   0,3   1,0   2,0     7   1636   1730 
+2STOB10  2STOB7-0-0    75   169    40  63       0   0   0   0   0    7   0,4   1,8   1,5     7   1762   1856 
+2STOB10  2STOB7-0-0    -7    87    88  64 **    0   0   0   0   0  -20   1,9   0,9   1,1     6   1681   1775 
+2STOB10  2STOB7-0-0   -29    65    66  62 *     0   0   0   0   0   20   1,7   1,6   0,6     6   1659   1753 
+2STOB10  2STOB7-0-0    47   141    68  55       0   0   0   0   0   37   3,2   1,0   1,4     6   1734   1828 
+2STOB10  2STOB7-0-0    86   180    29  66 *     0   0   0   0   0  -14   0,7   1,0   1,2     5   1773   1867 
+2STOB10  2STOB7-0-0   -28    66    67  64 *     0   0   0   0   0   21   1,7   0,5   1,3     5   1660   1754 
+2STOB10  2STOB7-0-0    83   177    32  63       0   0   0   0   0  -32   1,8   1,6   0,9     5   1770   1864 
+2STOB10  2STOB7-0-0    63   157    52  61       0   0   0   0   0    8   0,6   1,5   0,7     5   1750   1844 
+2STOB10  2STOB7-0-0    46   140    69  57       0   0   0   0   0   42   3,8   1,1   0,8     5   1733   1827 
+2STOB10  2STOB7-0-0    59   153    56  49       0   0   0   0   0   50   4,3   1,7   1,0     5   1746   1840 
+2STOB10  2STOB7-0-0   -46    48    49  60       0   0   0   0   0  -21   1,5   0,8   0,9     4   1642   1736 
+------------------------------------------------------------------
+
+*** DATE:  2020.01.11  TIME: 12.20.  End of cross-date job.    ***
+******************************************************************

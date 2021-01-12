@@ -1,0 +1,60 @@
+HEADER:
+DataFormat=HalfChrono
+SapWoodRings=0
+Pith=-
+Bark=-
+QualityCode=0
+Species=0
+ProtectionCode=0
+TotalMean=0
+TotalStandardDeviation=0
+TotalAutoCorrelation=0
+TotalMeanSensitivity=0
+TotalNORFM=0
+TotalNORFAC=0
+EffectiveMean=0
+EffectiveStandardDeviation=0
+EffectiveAutoCorrelation=0
+EffectiveMeanSensitivity=0
+EffectiveNORFM=0
+EffectiveNORFAC=0
+Length=114
+DateBegin=1688
+DateEnd=1801
+Dated=Undated
+GlobalMathCommentCount=0
+ImageCount=0
+CommentCount=0
+BibliographyCount=0
+KeyCode=proba_a
+Unit=1/100 mm
+DataType=Ringwidth
+SeriesStart=Earlywood
+SeriesEnd=Latewood
+SeriesType=Mean curve
+ChronoMemberKeycodes=2STOB7-0,2STOB7,2STOB8,2STOB1
+ChronoMemberCount=4
+DATA:Double
+   173     1   183     1   130     1   160     1   135     1
+   382     3   408     3   304     3   296     3   230     3
+   261     3   284     3   261     3   260     3   269     3
+   315     3   258     3   221     3   148     3   124     3
+   211     3   270     3   377     4   407     4   413     4
+   389     4   357     4   411     4   303     4   430     4
+   432     4   231     4   173     4   289     4   267     4
+   369     4   311     4   247     4   225     4   159     4
+   106     4   184     4   249     4   169     4   200     4
+   236     4   291     4   230     4   196     4   184     4
+   215     4   157     4   152     4   131     4   165     4
+   227     4   173     4   150     4   141     4   159     4
+   123     4   113     4   134     4    95     3    86     1
+    68     1    55     1    76     1    94     1    94     1
+    75     1    61     1    48     1    42     1    48     1
+    68     1    66     1    99     1   108     1    72     1
+   114     1   120     1    63     1    32     1    33     1
+    38     1    62     1    57     1    71     1    63     1
+    54     1    55     1    67     1    81     1    62     1
+    65     1    69     1    80     1    75     1    50     1
+    65     1    55     1    45     1    72     1    66     1
+    70     1    78     1    65     1   106     1    88     1
+    88     1    92     1    75     1    80     1     0     0

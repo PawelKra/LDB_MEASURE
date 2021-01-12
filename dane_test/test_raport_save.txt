@@ -1,0 +1,60 @@
+----------[ CrossDate Report ]----------
+Date/Time: 2021-01-12T16:27:08
+Job time: 0 seconds
+Minimu Left|Right ovl = 25
+Grouping: All Samples & Reference
+
+
+Sample  Ref.         Ovl   Glk   GSL   CC    T     TH    TBP   CDI   DateB DateE 
+proba_a IMG_8409.JPG 34    52          0.41  2.5   2.5   4.1   17    167   281   
+proba_a IMG_8409.JPG 34    65    *     0.17  1.0   2.6   2.5   17    161   275   
+proba_a IMG_8409.JPG 34    71    **    0.47  3.0   2.4   2.5   17    91    205   
+proba_b IMG_8409.JPG 34    71    **    0.05  0.3   2.5   2.4   17    165   260   
+proba_a IMG_8409.JPG 34    71    **    0.26  1.5   1.6   1.9   12    102   216   
+proba_a IMG_8409.JPG 34    50          -0.08 -0.5  2.0   2.4   11    146   260   
+proba_b IMG_8409.JPG 34    56          0.18  1.0   1.8   2.0   11    133   228   
+proba_b IMG_8409.JPG 34    71    **    -0.05 -0.3  2.1   1.0   11    120   215   
+proba_a IMG_8409.JPG 34    59          0.17  1.0   1.8   1.6   10    110   224   
+proba_a IMG_8409.JPG 35    65    *     0.28  1.7   1.1   1.8   9     166   280   
+proba_a IMG_8409.JPG 34    65    *     -0.03 -0.2  1.1   1.3   8     142   256   
+proba_a IMG_8409.JPG 34    62          -0.14 -0.8  1.5   1.0   8     135   249   
+proba_a IMG_8409.JPG 27    54          0.24  1.3   1.5   2.0   8     79    193   
+proba_b IMG_8409.JPG 34    59          0.31  1.9   1.2   1.4   8     142   237   
+proba_a IMG_8409.JPG 34    62          -0.29 -1.8  1.0   1.1   7     155   269   
+
+
+Sample       Ref.    Ovl   Glk   GSL   CC    T     TH    TBP   CDI   DateB DateE 
+proba_b      proba_a 91    63    **    0.27  2.6   3.5   3.4   21    1711  1806  
+proba_b      proba_a 57    70    **    0.62  5.9   3.5   3.7   21    1745  1840  
+proba_b      proba_a 94    62    **    -0.06 -0.6  2.9   3.4   20    1698  1793  
+IMG_8409.JPG proba_a 34    52          0.41  2.5   2.5   4.1   17    1687  1722  
+IMG_8409.JPG proba_a 34    65    *     0.17  1.0   2.6   2.5   17    1693  1728  
+IMG_8409.JPG proba_a 34    71    **    0.47  3.0   2.4   2.5   17    1763  1798  
+IMG_8409.JPG proba_a 34    71    **    0.26  1.5   1.6   1.9   12    1752  1787  
+IMG_8409.JPG proba_a 34    50          -0.08 -0.5  2.0   2.4   11    1708  1743  
+proba_b      proba_a 54    66    **    0.31  2.3   2.1   1.6   10    1647  1742  
+proba_b      proba_a 94    53          0.03  0.3   1.7   2.2   10    1703  1798  
+proba_b      proba_a 83    57          0.17  1.6   1.8   2.1   10    1719  1814  
+IMG_8409.JPG proba_a 34    59          0.17  1.0   1.8   1.6   10    1744  1779  
+IMG_8409.JPG proba_a 35    65    *     0.28  1.7   1.1   1.8   9     1688  1723  
+proba_b      proba_a 71    59          0.05  0.4   1.4   1.7   8     1664  1759  
+IMG_8409.JPG proba_a 34    65    *     -0.03 -0.2  1.1   1.3   8     1712  1747  
+
+
+Sample       Ref.    Ovl   Glk   GSL   CC    T     TH    TBP   CDI   DateB DateE 
+proba_a      proba_b 91    63    **    0.27  2.6   3.5   3.4   21    -22   92    
+proba_a      proba_b 57    70    **    0.62  5.9   3.5   3.7   21    -56   58    
+proba_a      proba_b 94    62    **    -0.06 -0.6  2.9   3.4   20    -9    105   
+IMG_8409.JPG proba_b 34    71    **    0.05  0.3   2.5   2.4   17    2     37    
+IMG_8409.JPG proba_b 34    56          0.18  1.0   1.8   2.0   11    34    69    
+IMG_8409.JPG proba_b 34    71    **    -0.05 -0.3  2.1   1.0   11    47    82    
+proba_a      proba_b 54    66    **    0.31  2.3   2.1   1.6   10    42    156   
+proba_a      proba_b 94    53          0.03  0.3   1.7   2.2   10    -14   100   
+proba_a      proba_b 83    57          0.17  1.6   1.8   2.1   10    -30   84    
+proba_a      proba_b 71    59          0.05  0.4   1.4   1.7   8     25    139   
+IMG_8409.JPG proba_b 34    59          0.31  1.9   1.2   1.4   8     25    60    
+proba_a      proba_b 43    64    *     0.04  0.3   1.8   1.2   7     53    167   
+proba_a      proba_b 65    55          0.24  2.0   1.5   1.5   7     31    145   
+proba_a      proba_b 94    59    *     0.02  0.1   1.6   0.8   7     -3    111   
+proba_a      proba_b 74    62    *     0.27  2.4   1.4   1.2   7     -39   75    
+----------[ End Report ]----------

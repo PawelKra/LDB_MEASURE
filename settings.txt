@@ -1,0 +1,5 @@
+LICZ|wo
+PORT|/dev/ttyUSB0
+ST|800
+E|KeyCode,Species,tesowy1,testowy2
+S|/home/pawel/dane/dendro/
