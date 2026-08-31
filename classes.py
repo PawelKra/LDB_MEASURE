@@ -9,6 +9,16 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def _intlike(v):
+    '''True if v is an int or a string of one - accepts a leading '-', unlike
+    str.isdigit(), so BC / negative calendar years are allowed.'''
+    try:
+        int(v)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
 def _fast_r(x, y):
     '''Pearson r of two equal-length float64 arrays.
 
@@ -100,7 +110,11 @@ def _prefix(v):
 
 
 def _r_curve(n, sx, sxx, sy, syy, sxy):
-    '''Pearson r for every lag from centred window moments (arrays).'''
+    '''Pearson r for every lag from centred window moments (arrays).
+
+    A constant window has zero variance -> 0/0 -> nan for that lag, matching
+    numpy.corrcoef (which also emits the RuntimeWarning - see
+    test_corellate_edge).'''
     cov = sxy - sx * sy / n
     vx = sxx - sx * sx / n
     vy = syy - sy * sy / n
@@ -981,7 +995,7 @@ class Sequence:
 
     def update_year_measurement(self, year, val):
         '''Updates increment in provided year'''
-        if not str(year).isdigit() or not str(val).isdigit():
+        if not _intlike(year) or not str(val).isdigit():
             return False
         if self.DateBegin() <= int(year) <= self.DateEnd():
             self.sample['measurements'][int(year)-self.sample['DateBegin']] =\
@@ -989,7 +1003,7 @@ class Sequence:
 
     def add_year_measurement(self, year, val):
         '''Adds increment in year provided by user'''
-        if not str(year).isdigit() or not str(val).isdigit():
+        if not _intlike(year) or not str(val).isdigit():
             return False
 
         if self.DateBegin() <= int(year) <= self.DateEnd():
@@ -1002,7 +1016,7 @@ class Sequence:
         '''Deletes measurement in year, if year beyond datebegin or dateend
         reutns False
         '''
-        if not str(year).isdigit():
+        if not _intlike(year):
             return False
 
         if self.DateBegin() <= int(year) <= self.DateEnd():

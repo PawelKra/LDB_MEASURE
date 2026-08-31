@@ -182,6 +182,23 @@ def test_delete_year_str_input():
     assert s.measurements() == [10, 20, 40, 50]
 
 
+def test_year_measurement_accepts_negative_calendar_years():
+    '''BC / pre-year-1 dates: the guard is int-parseable, not str.isdigit()
+    (which rejects a leading minus).'''
+    s = classes.Sequence({'KeyCode': 'x', 'DateBegin': -20,
+                          'measurements': [10, 20, 30, 40, 50]})  # years -20..-16
+
+    assert s.add_year_measurement(-18, 99) is True
+    assert s.measure_from_year(-18) == 99
+    assert s.Length() == 6
+
+    s.update_year_measurement(-18, 7)
+    assert s.measure_from_year(-18) == 7
+
+    assert s.delete_year_measurement(-18) is True
+    assert s.measurements() == [10, 20, 30, 40, 50]
+
+
 MULTI_RWL = os.path.join(os.path.dirname(__file__), 'data', 'multi.rwl')
 
 

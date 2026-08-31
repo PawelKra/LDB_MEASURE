@@ -115,9 +115,8 @@ class Results(QDialog):
         if p2f in '':
             return
 
-        fl = open(p2f, 'w')
-        fl.write('\n'.join(self.result))
-        fl.close()
+        with open(p2f, 'w') as fl:
+            fl.write('\n'.join(self.result))
 
         if not testrun:
             msgBox = QMessageBox()
