@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QTableWidgetItem, QWidget, QFileDialog, \
     QMessageBox, QTableWidget
 
 import classes
+from dendro import io as dio
 
 
 class PanelSample:
@@ -151,27 +152,23 @@ class PanelSample:
             if ret == QMessageBox.No:
                 return False
 
-        if ext == '.fh':
-            classes.write_fh(rpaths[0], rdict)
-            classes.write_fh(mpaths[0], mdict)
-        elif ext == '.txt':
+        fmt = dio.format_for(ext)
+        if fmt is None or fmt.writer is None:
+            msgBox = QMessageBox()
+            msgBox.setText('Cannot save to "%s" files.' % ext)
+            msgBox.exec_()
+            return False
+
+        if fmt.multi:
+            dio.write(rpaths[0], rdict)
+            dio.write(mpaths[0], mdict)
+        else:
             for it in mdict.values():
-                classes.write_txt(
-                    os.path.join(cat_means, it.KeyCode()+ext), it
-                )
+                dio.write(os.path.join(cat_means, it.KeyCode() + ext),
+                          {it.KeyCode(): it})
             for it in rdict.values():
-                classes.write_txt(
-                    os.path.join(cat_smpl, it.KeyCode()+ext), it
-                )
-        elif ext == '.avr':
-            for it in mdict.values():
-                classes.write_r(
-                    os.path.join(cat_means, it.KeyCode()+ext), it
-                )
-            for it in rdict.values():
-                classes.write_r(
-                    os.path.join(cat_smpl, it.KeyCode()+ext), it
-                )
+                dio.write(os.path.join(cat_smpl, it.KeyCode() + ext),
+                          {it.KeyCode(): it})
 
         self.saved = True
 
@@ -208,16 +205,13 @@ class PanelSample:
         fh_files = []
         for pth in paths:
             path = str(pth)
-            cat, nm = os.path.split(path)
-            name, ext = nm.split('.')
-            if ext.upper() == 'FH':
-                fh_files.append(path)
-            elif ext.upper() == 'RWL':
-                samps.update(classes.read_rwl(path))
-            elif ext.upper()[:2] == 'AV':
-                samps.update(classes.read_r(path))
-            elif ext.upper() == 'POS':
-                samps.update(classes.read_pos(path))
+            ext = os.path.splitext(path)[1].lstrip('.').lower()
+            if ext == 'fh':
+                fh_files.append(path)              # batched for KeyCode dedup
+            else:
+                fmt = dio.format_for(ext)
+                if fmt is not None and fmt.reader is not None:
+                    samps.update(dio.read(path))
 
         if len(fh_files) > 0:
             samps.update(classes.read_fh(fh_files))
