@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Tooling / editors
+.pytest_cache/
+.ropeproject/
+.venv/
+venv/
+
+# Test artifacts written under dane_test/
+dane_test/test_save_sample*
+dane_test/save_test_*
+dane_test/result.txt
+dane_test/test_raport_save.txt
