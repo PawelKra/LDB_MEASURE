@@ -104,20 +104,23 @@ def test_full_measuring_session_by_clicks(
         main_window, qtbot, fake_counter, chart_lines):
     click(qtbot, main_window.ui.pushButton_new_sequence)
 
-    # user turns the encoder three times
-    fake_counter.feed(120, 135, 128)
+    # measure two rings, mark ring 2 as the first sapwood ring, measure three more
+    fake_counter.feed(120, 135)
+    for _ in range(2):
+        click(qtbot, main_window.ui.pushButton_read_measure)
+
+    click(qtbot, main_window.ui.pushButton_sapwood_beg)   # ring 2 = first sapwood
+    assert main_window.ui.lineEdit_sapwood.text() == '2'
+
+    fake_counter.feed(128, 140, 150)
     for _ in range(3):
         click(qtbot, main_window.ui.pushButton_read_measure)
 
-    assert main_window.opened.measurements() == [120, 135, 128]
-
-    click(qtbot, main_window.ui.pushButton_sapwood_beg)
-    assert main_window.ui.lineEdit_sapwood.text() == '3'
-
     click(qtbot, main_window.ui.pushButton_end_measures)
     assert main_window.opened is False
-    assert main_window.stack['s']['R1'].SapWood() == 3
-    assert main_window.stack['s']['R1'].measurements() == [120, 135, 128]
+    assert main_window.stack['s']['R1'].measurements() == [120, 135, 128, 140, 150]
+    # rings 2,3,4,5 are sapwood -> a count of 4
+    assert main_window.stack['s']['R1'].SapWood() == 4
     # chart shows the finished curve (+ the cursor axvline)
     assert chart_lines(main_window) == 2
 

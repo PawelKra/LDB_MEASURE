@@ -19,10 +19,13 @@ class PanelDevice:
     @UserDecorators.should_be_opened
     @UserDecorators.select_measure_button
     def set_sapwood(self):
-        '''write into lineEdit_sapwood, current ring number
+        '''Mark the current ring as the first sapwood ring. The number shown
+        is that ring's position; end_sequence converts it to the sapwood
+        ring *count* that gets stored in the SapWood metadata.
         '''
         if len(self.opened.measurements()) > 0:
-            self.ui.lineEdit_sapwood.setText(str(self.opened.Length()))
+            self.sapwood_beg = self.opened.Length()
+            self.ui.lineEdit_sapwood.setText(str(self.sapwood_beg))
 
     @UserDecorators.should_be_opened
     @UserDecorators.select_measure_button
@@ -37,9 +40,16 @@ class PanelDevice:
     def end_sequence(self):
         '''ends measuring session, set opened to false
         '''
-        if self.ui.lineEdit_sapwood.text() != '':
-            self.opened.set_meta('SapWood',
-                                 int(self.ui.lineEdit_sapwood.text()))
+        txt = self.ui.lineEdit_sapwood.text()
+        if self.sapwood_beg > 0 and txt.isdigit():
+            # field holds the first-sapwood-ring number: store the ring count
+            beg = int(txt)
+            self.opened.set_meta(
+                'SapWood', max(0, self.opened.Length() - beg + 1))
+        elif txt.isdigit():
+            # typed straight in: already a sapwood ring count
+            self.opened.set_meta('SapWood', int(txt))
+        self.sapwood_beg = 0
         self.opened = False
         self.clear_device_panel()
 

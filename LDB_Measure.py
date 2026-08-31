@@ -41,6 +41,9 @@ class LDB_Form(QMainWindow,
         # trigger for knowing if device is open and user is measuring sample
         # if False all device panel is disabled
         self.opened = False
+        # ring no. the user marked as the first sapwood ring in this session
+        # (0 = not marked); end_sequence turns it into a sapwood ring count
+        self.sapwood_beg = 0
         # is current sample is saved, and when close program, loose data
         self.saved = True
         # setting readed from file

@@ -58,6 +58,33 @@ def test_sapwood_adds_a_second_line_for_that_sample(loaded_window,
     assert chart_lines(loaded_window) == before + 1     # the gray sapwood trace
 
 
+def _sapwood_line(win):
+    return next(l for l in win.ui.widget.canvas.ax.lines
+                if l.get_color() == 'gray' and l.get_linewidth() == 4)
+
+
+def test_sapwood_bold_covers_exactly_the_last_N_rings(loaded_window):
+    r1 = loaded_window.stack.base['s']['R1']
+    r1.set_meta('SapWood', 4)
+    loaded_window.redraw_chart()
+
+    xs = list(_sapwood_line(loaded_window).get_xdata())
+    ys = list(_sapwood_line(loaded_window).get_ydata())
+    assert xs == list(range(r1.DateEnd() - 3, r1.DateEnd() + 1))   # 4 years
+    assert all(y > 0 for y in ys)                    # no measure_from_year False->0
+
+
+def test_sapwood_bold_is_clamped_to_the_curve(loaded_window):
+    r1 = loaded_window.stack.base['s']['R1']
+    r1.set_meta('SapWood', r1.Length() + 50)          # absurd count
+    loaded_window.redraw_chart()
+
+    xs = list(_sapwood_line(loaded_window).get_xdata())
+    assert min(xs) == r1.DateBegin()                  # never before the curve
+    assert max(xs) == r1.DateEnd()
+    assert all(y > 0 for y in _sapwood_line(loaded_window).get_ydata())
+
+
 def test_stats_box_only_with_one_selection_and_more_than_one_sample(
         loaded_window, select_rows):
     ax = loaded_window.ui.widget.canvas.ax

@@ -30,12 +30,13 @@ class PanelChart:
             ])
 
             if smpl.SapWood() > 0:
+                # bold only the last `SapWood` rings (a ring count), clamped
+                # so it never runs past the start of the curve
+                sw = min(smpl.SapWood(), smpl.Length())
+                yrs = list(range(smpl.DateEnd()-sw+1, smpl.DateEnd()+1))
                 sapdata.append([
-                    [y for y in range(smpl.DateEnd()-smpl.SapWood(),
-                                      smpl.DateEnd()+1)],
-                    [smpl.measure_from_year(x)+i*100
-                     for x in range(smpl.DateEnd()-smpl.SapWood(),
-                                    smpl.DateEnd()+1)]
+                    yrs,
+                    [smpl.measure_from_year(x)+i*100 for x in yrs],
                 ])
 
             min_year.append(smpl.DateBegin())
@@ -49,8 +50,7 @@ class PanelChart:
         if 0 in [len(x[1]) for x in chdata]:
             return
 
-        for i, tab in enumerate(sapdata):
-            lwd = 1 if i not in selrows else 2
+        for tab in sapdata:
             self.ui.widget.canvas.ax.plot(*tab, linewidth=4, color='gray')
 
         for i, tab in enumerate(chdata):
