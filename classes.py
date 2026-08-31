@@ -4,9 +4,6 @@ import os
 import math
 import struct
 import numpy as np
-from numpy import corrcoef as crosscoef
-from numpy import add
-from collections import Counter
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +55,10 @@ def _standardize(meas):
 
 
 def _stats_row(cc_ab, r_bp, r_h, n_raw, n_bp, n_h, glk, dl_a):
-    '''Assemble [crosscoef, TBP, TH, T, GLK, GSL, CDI] from the three
-    correlation coefficients and the GLK count. Same rounding, thresholds
-    and sentinels as the tail of correlation().
+    '''Assemble one result row [crosscoef, TBP, TH, T, GLK, GSL, CDI] from the
+    raw / BP / H Pearson coefficients and the GLK count: t-values via _T, the
+    GLK percentage, the Eckstein-Bauch GSL stars, the 0.00001 no-overlap
+    sentinel and the TSAP CDI. Shared by corellate and corellate_position.
     '''
     row = [
         round(cc_ab, 2),
@@ -594,74 +592,6 @@ def corellate(sample, reference, count=10):  # noqa
     return res[:count]
 
 
-def correlation(a, b, dl_a, standBPa, standBPb, standHa, standHb, glk):
-    '''
-    compute statistics for two samples of equal length (not necesarily full
-    length od sample.
-
-    a, b - list of measures, should have same length
-    dl_a - max overaly of 2 samples (needed to cdi calcs)
-    standBPa=[]
-    standBPb=[]
-    standHa=[]
-    standHb=[]
-    glk=0
-    returns [crosscoef, TBP, TH, T, GLK, GSL, CDI, ]
-    '''
-
-    result = []
-    # change measurements to floats
-    a = list(map(float, a))
-    b = list(map(float, b))
-
-    # raw Pearson coefficient, reused for the unstandardised T below
-    cc_ab = float(crosscoef(a, b)[1][0])
-
-    # calculate crosscoef
-    result.append(round(cc_ab, 2))
-
-    # T for BP standarization
-    val = round(_T(len(standBPa),
-                   float(crosscoef(standBPa, standBPb)[1][0])
-                   ), 1)
-    result.append(val)
-
-    # T for H standarization
-    val = round(_T(len(standHa), crosscoef(standHa, standHb)[1][0]), 1)
-    result.append(val)
-
-    # T whithout standarization
-    val = round(_T(len(a), cc_ab), 1)
-    result.append(val)
-
-    if glk > 0:
-        # GLK
-        glkr = round((float(glk)/(len(a)-1))*100)
-        result.append(glkr)
-        # GSL
-        fr1 = 50 + (82.7/math.sqrt(len(a)))
-        fr2 = 50 + (116.3/math.sqrt(len(a)))
-        fr3 = 50 + (154/math.sqrt(len(a)))
-
-        if fr1 <= glkr < fr2:
-            result.append("*")
-        elif fr2 <= glkr < fr3:
-            result.append("**")
-        elif glkr >= fr3:
-            result.append("***")
-        else:
-            result.append("")
-
-    else:
-        result.append(0.00001)
-        result.append("")
-
-    # CDI
-    result.append(int(cdi(result[4], len(a), dl_a, result[1], result[2])))
-
-    return result
-
-
 def corellate_position(a, b):  # noqa
     '''
     computes statistics for 2 samples at their current position defined as
@@ -672,86 +602,34 @@ def corellate_position(a, b):  # noqa
     if not isinstance(a, Sequence) or not isinstance(b, Sequence):
         return False
 
-    offset = 0  # offset in samp with older date of begin
-    tab = [[], []]  # lists with data to calculate
-    # structure to compute standaristation
-    standBPa = [0, 0]
-    standBPb = [0, 0]
-    standHa = []
-    standHb = []
-    glka = []
-    glkb = []
+    # the sample that starts earlier is the reference
+    younger, older = a, b
+    if a.DateBegin() < b.DateBegin():
+        younger, older = b, a
 
-    # select older sample to be reference
-    younger = a
-    older = b
-    if a.DateBegin() < b.DateBegin():  # swap samples to match criteria
-        younger = b
-        older = a
-
-    # check for older date end to get proper data structure
-    end_date = int(younger.DateEnd())
-    if end_date > int(older.DateEnd()):
-        end_date = int(older.DateEnd())
-
-    # check for younger date begin, same reason as above
+    end_date = min(int(younger.DateEnd()), int(older.DateEnd()))
     offset = abs(older.DateBegin() - younger.DateBegin())
+    length = end_date - younger.DateBegin() + 1
 
-    # prepare structure for statistic computation
-    i = 0
-    while i < end_date - younger.DateBegin() + 1:
-        # younger sample - with offset
-        tab[0].append(younger.measurements()[i])
-        tab[1].append(older.measurements()[i+offset])
-        i += 1
-
-    # if len of structure is less than 30 years, no statistics
-    if len(tab[0]) < 30:
+    # less than 30 overlapping years - no statistics
+    if length < 30:
         return ['xxx', 'xxx', 'xxx', 'xxx', 'xxx', 'xxx', 'xxx']
 
-    for i in range(len(tab[0])):
-        # standarization BP
-        if i < len(tab[1])-2 and i > 1:
-            standBPa.append((math.log(
-                (5 * float(tab[0][i]))/sum(list(map(float, tab[0][i-2:i+3])))
-            )))
-            standBPb.append((math.log(
-                (5*float(tab[1][i]))/sum(list(map(float, tab[1][i-2:i+3])))
-            )))
+    x = np.asarray(younger.measurements()[:length], dtype=np.float64)
+    y = np.asarray(older.measurements()[offset:offset + length],
+                   dtype=np.float64)
 
-        # standarization H
-        if i < (len(tab[0])-1):
-            standHa.append(
-                math.log(float(tab[0][i]) / float(tab[0][i+1]), 10)
-            )
-            standHb.append(
-                math.log(float(tab[1][i])/float(tab[1][i+1]), 10)
-            )
+    _, bpx, hx, gx = _standardize(x)
+    _, bpy, hy, gy = _standardize(y)
 
-        # GLK
-        if i < len(tab[0])-1:
-            if (float(tab[0][i+1])-float(tab[0][i]) >= 0):
-                glka.append(1)
-            else:
-                glka.append(0)
-        if i < len(tab[1])-1:
-            if (float(tab[1][i+1])-float(tab[1][i]) >= 0):
-                glkb.append(1)
-            else:
-                glkb.append(0)
+    glk = int(np.count_nonzero(gx == gy))
 
-    glk = list(add(glka[:], glkb[:]))
-    glk = Counter(glk)[0]+Counter(glk)[2]
-
-    res = correlation(tab[0],
-                      tab[1],
-                      min(younger.Length(), older.Length()),
-                      standBPa[2:],
-                      standBPb[2:],
-                      standHa[1:],
-                      standHb[1:],
-                      glk)
-    return res
+    return _stats_row(
+        _fast_r(x, y),
+        _fast_r(bpx[2:], bpy[2:]),
+        _fast_r(hx[1:], hy[1:]),
+        x.shape[0], bpx[2:].shape[0], hx[1:].shape[0],
+        glk, min(younger.Length(), older.Length()))
 
 
 def format_text_spaces(text, text_len=6):
@@ -1055,9 +933,12 @@ class DataBase:
         miny = min([x.DateBegin() for x in seqs.values()])
         maxy = max([x.DateEnd() for x in seqs.values()])
 
-        data = [[val.measure_from_year(i) for val in seqs.values()
-                 if val.measure_from_year(i) is not False]
-                for i in range(miny, maxy+1)]
+        data = []
+        for i in range(miny, maxy + 1):
+            year_vals = [m for m in (val.measure_from_year(i)
+                                     for val in seqs.values())
+                         if m is not False]
+            data.append(year_vals)
 
         # calculate sapwood
         sapw = [x.DateEnd()-x.SapWood() for x in seqs.values()
