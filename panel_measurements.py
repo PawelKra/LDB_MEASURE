@@ -1,7 +1,7 @@
 import logging
 
-from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QTableWidgetItem, QMessageBox
+from PyQt6.QtCore import Qt
 from user_decorators import UserDecorators
 from ccres_window import Results
 import classes
@@ -40,7 +40,7 @@ class PanelMeasurements:
             msgBox.setText('For continue, there should be selected '
                            'one sample from measurement panel!'
                            )
-            msgBox.exec_()
+            msgBox.exec()
             return
 
         # get object with selected sequence
@@ -49,7 +49,7 @@ class PanelMeasurements:
         if seq is None:
             msgBox = QMessageBox()
             msgBox.setText('Sequence "%s" is not in the database.' % name)
-            msgBox.exec_()
+            msgBox.exec()
             return
 
         self.opened = seq  # set current seq to update measures later
@@ -84,13 +84,13 @@ class PanelMeasurements:
             corw.choose_cc_job(allcc=True)
             corw.crossdate()
             corw.load_result()
-            corw.exec_()
+            corw.exec()
             self.sync_db_to_twmeas()
         except (KeyError, ValueError) as err:
             logger.exception("crossdating failed")
             msgBox = QMessageBox()
             msgBox.setText('Crossdating could not run: %s' % err)
-            msgBox.exec_()
+            msgBox.exec()
 
     @UserDecorators.should_be_closed
     def create_mean(self):
@@ -156,7 +156,8 @@ class PanelMeasurements:
         for j, val in enumerate(cols):
             cell = QTableWidgetItem(val if val != 'Unknown' else '')
             if j in [0, 3]:
-                cell.setFlags(Qt.ItemIsEditable | Qt.ItemIsSelectable)
+                cell.setFlags(Qt.ItemFlag.ItemIsEditable
+                              | Qt.ItemFlag.ItemIsSelectable)
             tw.setItem(row, j, cell)
         tw.blockSignals(False)
         tw.resizeColumnsToContents()
@@ -236,7 +237,8 @@ class PanelMeasurements:
             twi = QTableWidgetItem(str(st[smp].DateEnd()))
             self.ui.tableWidget_meas.setItem(self.order.index(smp), 2, twi)
             twi = QTableWidgetItem(str(st[smp].Length()))
-            twi.setFlags(Qt.ItemIsEditable | Qt.ItemIsSelectable)
+            twi.setFlags(Qt.ItemFlag.ItemIsEditable
+                         | Qt.ItemFlag.ItemIsSelectable)
             self.ui.tableWidget_meas.setItem(self.order.index(smp), 3, twi)
             twi = QTableWidgetItem(str(st[smp].export_meta('SapWood')))
             self.ui.tableWidget_meas.setItem(self.order.index(smp), 4, twi)
@@ -247,26 +249,26 @@ class PanelMeasurements:
     def keyPressEvent(self, e):
         key = e.key()
 
-        if key == Qt.Key_Space:
+        if key == Qt.Key.Key_Space:
             self.read_measure()
 
-        if str(key) == str(Qt.Key_F3):
+        if key == Qt.Key.Key_F3:
             sel, rows = self.selected_twmeas_rows()
             for row in rows:
                 seq = self.stack.base['s'][self.order[row]]
                 seq.setDateBegin(seq.DateBegin()-1)
             self.sync_db_to_twmeas()
 
-        if str(key) == str(Qt.Key_F4):
+        if key == Qt.Key.Key_F4:
             sel, rows = self.selected_twmeas_rows()
             for row in rows:
                 seq = self.stack.base['s'][self.order[row]]
                 seq.setDateBegin(seq.DateBegin()+1)
             self.sync_db_to_twmeas()
 
-        if str(key) == str(Qt.Key_Up):
+        if key == Qt.Key.Key_Up:
             self.offset += 1
 
-        if str(key) == str(Qt.Key_Down):
+        if key == Qt.Key.Key_Down:
             if self.offset > 0:
                 self.offset -= 1

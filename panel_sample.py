@@ -1,6 +1,6 @@
 import os
 from user_decorators import UserDecorators
-from PyQt5.QtWidgets import QTableWidgetItem, QWidget, QFileDialog, \
+from PyQt6.QtWidgets import QTableWidgetItem, QWidget, QFileDialog, \
     QMessageBox, QTableWidget
 
 import classes
@@ -19,9 +19,9 @@ class PanelSample:
             ret = QMessageBox.question(
                 self, 'Write sample',
                 'Save current measures?',
-                QMessageBox.Yes, QMessageBox.No
+                QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No
             )
-            if ret == QMessageBox.Yes:
+            if ret == QMessageBox.StandardButton.Yes:
                 ok = self.save_sample()
                 if not ok:
                     return
@@ -71,7 +71,7 @@ class PanelSample:
         sd.setAlternatingRowColors(True)
         sd.setSortingEnabled(False)
         sd.resizeColumnsToContents()
-        sd.setSelectionBehavior(QTableWidget.SelectRows)
+        sd.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         sd.blockSignals(False)
 
     @UserDecorators.should_be_closed
@@ -82,7 +82,7 @@ class PanelSample:
         if str(self.ui.tableWidget_attr.item(0, 0).text()) == '---':
             msgBox = QMessageBox()
             msgBox.setText('Set proper name for sample! (KeyCode)')
-            msgBox.exec_()
+            msgBox.exec()
             return False
 
         # create list or R and M sequences
@@ -147,16 +147,16 @@ class PanelSample:
             ret = QMessageBox.question(
                 self, 'Overwrite samples',
                 'Overwrite measures?',
-                QMessageBox.Yes, QMessageBox.No
+                QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No
             )
-            if ret == QMessageBox.No:
+            if ret == QMessageBox.StandardButton.No:
                 return False
 
         fmt = dio.format_for(ext)
         if fmt is None or fmt.writer is None:
             msgBox = QMessageBox()
             msgBox.setText('Cannot save to "%s" files.' % ext)
-            msgBox.exec_()
+            msgBox.exec()
             return False
 
         if fmt.multi:
@@ -181,7 +181,7 @@ class PanelSample:
         msgBox.setText("Saved: "+str(len(mdict.keys()))+' means, ' +
                        str(len(rdict.keys()))+' samples;'
                        )
-        msgBox.exec_()
+        msgBox.exec()
         return True
 
     @UserDecorators.should_be_closed
@@ -219,7 +219,7 @@ class PanelSample:
         if len(samps) > 20:
             msgBox = QMessageBox()
             msgBox.setText('You can open only 20 samples')
-            msgBox.exec_()
+            msgBox.exec()
             return
 
         for val in samps.values():

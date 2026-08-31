@@ -9,6 +9,8 @@ __pycache__/
 .ropeproject/
 .venv/
 venv/
+.coverage
+htmlcov/
 
 # Test artifacts written under dane_test/
 dane_test/test_save_sample*

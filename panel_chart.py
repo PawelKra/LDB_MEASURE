@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QMenu, QInputDialog, QAction
-from PyQt5.QtGui import QCursor
+from PyQt6.QtWidgets import QMenu, QInputDialog
+from PyQt6.QtGui import QCursor, QAction
 import matplotlib
 import classes
 

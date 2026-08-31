@@ -1,6 +1,6 @@
 from user_decorators import UserDecorators
-from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtGui import QTextCursor
+from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtGui import QTextCursor
 import classes
 
 
@@ -69,7 +69,7 @@ class PanelDevice:
              for i, x in enumerate(self.opened.measurements())]
         )
         self.ui.textEdit_meas.setText(out)
-        self.ui.textEdit_meas.moveCursor(QTextCursor.End)
+        self.ui.textEdit_meas.moveCursor(QTextCursor.MoveOperation.End)
 
     def setup_device(self):
         # check if we have attached any device on port
@@ -80,7 +80,7 @@ class PanelDevice:
                                '(Please check if COM port didn\'t changed)\n'
                                '(Please check cables)'
                                )
-                msgBox.exec_()
+                msgBox.exec()
                 return False
             else:
                 self.dev.set_zeros()

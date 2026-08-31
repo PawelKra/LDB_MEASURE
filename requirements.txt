@@ -1,8 +1,14 @@
-matplotlib==3.3.3
-minimalmodbus==1.0.2
-numpy==1.19.4
-PyQt5==5.15.2
-PyQt5-sip==12.8.1
+matplotlib==3.11.1
+minimalmodbus==2.1.1
+numpy==2.5.2
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.2
+PyQt6-sip==13.12.0
 pyserial==3.5
-pytest==6.2.1
-pytest-qt==3.3.0
+
+# --- test only (optional) ---
+pytest==9.1.1
+pytest-qt==4.5.0
+pytest-mock==3.15.1
+pytest-cov==7.1.0
+pytest-timeout==2.4.0

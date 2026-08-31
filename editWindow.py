@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QDialog, QInputDialog, QTableWidget, \
+from PyQt6.QtWidgets import QDialog, QInputDialog, QTableWidget, \
     QTableWidgetItem, QPushButton, QVBoxLayout, QGridLayout, \
     QSlider, QLabel, QHBoxLayout, QSizePolicy
-from PyQt5.QtCore import pyqtSignal, Qt, QSize
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg \
+from PyQt6.QtCore import Qt, QSize
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg \
                                                                 as FigureCanvas
-from matplotlib.backends.backend_qt5 import NavigationToolbar2QT \
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT \
                                                             as NavigationToolbar
 from matplotlib.ticker import MultipleLocator
 import matplotlib.pyplot as pyplot
@@ -98,13 +98,13 @@ class edycja_proby(QDialog):
         self.setLayout(layout)
 
         # Sygnaly
-        self.connect(self.anuluj, pyqtSignal("clicked()"), self.schowaj)
-        self.connect(self.wykonaj, pyqtSignal("clicked()"), self.wykonaj_odczytanie)
-        self.connect(self.dodaj, pyqtSignal("clicked()"), self.dodaj_wartosc)
-        self.connect(self.przerysuj, pyqtSignal("clicked()"), self.przerysuj_wykres)
-        self.connect(self.usun, pyqtSignal("clicked()"), self.usun_wartosc)
-        self.connect(self.podziel, pyqtSignal("clicked()"), self.podziel_wartosc)
-        self.connect(self.polacz, pyqtSignal("clicked()"), self.polacz_wartosc)
+        self.anuluj.clicked.connect(self.schowaj)
+        self.wykonaj.clicked.connect(self.wykonaj_odczytanie)
+        self.dodaj.clicked.connect(self.dodaj_wartosc)
+        self.przerysuj.clicked.connect(self.przerysuj_wykres)
+        self.usun.clicked.connect(self.usun_wartosc)
+        self.podziel.clicked.connect(self.podziel_wartosc)
+        self.polacz.clicked.connect(self.polacz_wartosc)
         self.p_naglowek.cellChanged.connect(self.edytowana_kom_nagl)
         self.p_dane.itemSelectionChanged.connect(self.przerysuj_wykres)
         self.p_dane.cellChanged.connect(self.przerysuj_wykres)
@@ -127,7 +127,8 @@ class edycja_proby(QDialog):
         elif len(self.defpol.keys()):
             add_table = sorted(list(self.defpol.keys()))
         else:
-            add_table = sorted(self.sample.unikalneNaglowki())
+            add_table = sorted(k for k in self.sample.sample
+                               if k not in self.sample.forb_keys)
 
         for val in add_table:
             if val not in self.headers:
@@ -138,13 +139,14 @@ class edycja_proby(QDialog):
         # Dodaj wartosci wierszow dla tabeli naglowka proby
         self.p_naglowek.blockSignals(True)
         for i, val in enumerate(self.headers):
-            if self.sample.wypiszMetadana(val):
-                komorka = QTableWidgetItem(str(self.sample.wypiszMetadana(val)))
+            if self.sample.export_meta(val):
+                komorka = QTableWidgetItem(str(self.sample.export_meta(val)))
             else:
                 komorka = QTableWidgetItem('---')
 
             if val == 'Length':
-                komorka.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                komorka.setFlags(Qt.ItemFlag.ItemIsSelectable
+                                 | Qt.ItemFlag.ItemIsEnabled)
 
             self.p_naglowek.setItem(i, 0, komorka)
         self.p_naglowek.blockSignals(False)
@@ -164,7 +166,7 @@ class edycja_proby(QDialog):
                      [],  # Y axis - measurements
                     ]
 
-        self.chartData[1] = self.sample.wypiszPomiary()
+        self.chartData[1] = self.sample.measurements()
         self.chartData[0] = range(1, self.sample.Length() + 1)
 
         self.qmc.axes.clear()
@@ -175,12 +177,10 @@ class edycja_proby(QDialog):
         Xpoints = []
         Ypoints = []
         self.selected = []
-        j = 0
         for i in range(self.sample.Length()):
-            if i == 11:
-                j += 1
-            item = self.p_dane.item(j, i-(j*10))
-            if item.isSelected():
+            row, col = divmod(i, 10)
+            item = self.p_dane.item(row, col)
+            if item is not None and item.isSelected():
                 Xpoints.append(i+1)
                 self.selected.append(i)
                 Ypoints.append(int(item.text()))
@@ -194,7 +194,7 @@ class edycja_proby(QDialog):
         Xmax = 40
         if self.sample.Length() > 40:
             Xmax = self.sample.Length() + 2
-        Ymax = max(self.sample.wypiszPomiary()) + 30
+        Ymax = max(self.sample.measurements()) + 30
         self.qmc.axes.axis([0, Xmax, 0, Ymax])
 
         self.qmc.axes.xaxis.grid(
@@ -228,7 +228,7 @@ class edycja_proby(QDialog):
         for i, head in enumerate(self.headers):
             ins = self.p_naglowek.item(i, 0).text()
             if head not in ['Length'] and ins not in ['---', 0]:
-                target.wpiszMetadana(
+                target.set_meta(
                     head,
                     ins
                     )
@@ -251,7 +251,7 @@ class edycja_proby(QDialog):
                 except:
                     check = 'notOk'
 
-        target.uaktualnijPom(measurements)
+        target.update_measurements(measurements)
         if redraw == 1:
             self.wpisz_pomiary()
 
@@ -262,29 +262,32 @@ class edycja_proby(QDialog):
         for wiersz in range(self.ile_wierszy):
             for kolumna in range(self.ile_kol):
                 item = self.p_dane.item(wiersz, kolumna)
-                if self.p_dane.isItemSelected(item) == True and kk == 0:
+                if item is not None and item.isSelected() and kk == 0:
                     kk = 1
                     text, ok = QInputDialog.getText(
                         self, 'Value', 'inser value: ')
                     if ok:
-                        measurements = self.sample.wypiszPomiary()
+                        measurements = self.sample.measurements()
                         measurements.insert((wiersz*10)+kolumna, int(text))
-                        self.sample.uaktualnijPom(measurements)
+                        self.sample.update_measurements(measurements)
         self.wpisz_pomiary()
         self.przerysuj_wykres()
 
     def usun_wartosc(self):
         sel = self.selected[:]
         sel.reverse()
+        meas = self.sample.measurements()
         for s in sel:
-            self.sample.usunOstatniPomiar(position=int(s))
+            if 0 <= int(s) < len(meas):
+                del meas[int(s)]
+        self.sample.update_measurements(meas)
         self.wpisz_pomiary()
         self.przerysuj_wykres()
 
     def wpisz_pomiary(self):
         # przygotowanie labelek poziomych dla tablicy z pomiarami
-        self.w = (len(self.sample.wypiszPomiary()))/10
-        if (len(self.sample.wypiszPomiary())) % 10 > 0:
+        self.w = len(self.sample.measurements()) // 10
+        if len(self.sample.measurements()) % 10 > 0:
             self.w += 1
         i = 0
         self.ww = []
@@ -302,7 +305,7 @@ class edycja_proby(QDialog):
         i = 0
         j = 0
         k = 0
-        measurements = self.sample.wypiszPomiary()
+        measurements = self.sample.measurements()
         while k < len(measurements):
             if j == 10:
                 j = 0
@@ -323,22 +326,20 @@ class edycja_proby(QDialog):
         if len(self.selected) != 1:
             pass
         else:
-            measurements = self.sample.wypiszPomiary()
-            val = measurements[self.selected[0]]
-            self.divideWindow = okno_podzialu(val)
-            self.divideWindow.exec_()
-            measurements.pop(self.selected[0])
-            self.sample.uaktualnijPom(measurements)
-            self.sample.dodajPomiar(self.divideWindow.val1,
-                                    position=self.selected[0])
-            self.sample.dodajPomiar(self.divideWindow.val0,
-                                    position=self.selected[0])
+            measurements = self.sample.measurements()
+            pos = self.selected[0]
+            self.divideWindow = okno_podzialu(measurements[pos])
+            self.divideWindow.exec()
+            measurements.pop(pos)
+            measurements.insert(pos, self.divideWindow.val1)
+            measurements.insert(pos, self.divideWindow.val0)
+            self.sample.update_measurements(measurements)
 
             self.wpisz_pomiary()
             self.przerysuj_wykres()
 
     def polacz_wartosc(self):
-        measurements = self.sample.wypiszPomiary()
+        measurements = self.sample.measurements()
         i = len(measurements) - 1
         selectionRange = []
         newMeasurements = []
@@ -354,7 +355,7 @@ class edycja_proby(QDialog):
         if len(selectionRange) > 0:
             newMeasurements.append(selectionRange)
         newMeasurements.reverse()
-        self.sample.uaktualnijPom(newMeasurements)
+        self.sample.update_measurements(newMeasurements)
 
         self.wpisz_pomiary()
         self.przerysuj_wykres()
@@ -371,12 +372,12 @@ class edycja_proby(QDialog):
         if self.headers[row] in ['DateBegin', 'DateEnd']:
             head_temp = self.headers[row]
             if head_temp == "DateBegin":
-                self.sample.ustawDateBegin(
+                self.sample.setDateBegin(
                     int(self.p_naglowek.item(row, 0).text()))
                 it = QTableWidgetItem(str(self.sample.DateEnd()))
                 self.p_naglowek.setItem(self.headers.index("DateEnd"), 0, it)
             if head_temp == "DateEnd":
-                self.sample.ustawDateEnd(
+                self.sample.setDateEnd(
                     int(self.p_naglowek.item(row, 0).text()))
                 it = QTableWidgetItem(str(self.sample.DateBegin()))
                 self.p_naglowek.setItem(self.headers.index("DateBegin"), 0, it)
@@ -392,7 +393,7 @@ class okno_podzialu(QDialog):
         self.setWindowTitle("Divide Ringwidth")
         self.resize(150, 80)
 
-        self.s = QSlider(Qt.Horizontal)
+        self.s = QSlider(Qt.Orientation.Horizontal)
         self.s.setMinimum(1)
         self.s.setMaximum(int(self.aa))
         self.wart1 = QLabel("1")
@@ -412,9 +413,9 @@ class okno_podzialu(QDialog):
         layout.addLayout(layout1, 2, 0, 1, 3)
         self.setLayout(layout)
 
-        self.connect(self.s, pyqtSignal("valueChanged(int)"), self.uaktualnij)
-        self.connect(self.anuluj, pyqtSignal("clicked()"), self.anulowanie)
-        self.connect(self.ok, pyqtSignal("clicked()"), self.akceptuj)
+        self.s.valueChanged.connect(self.uaktualnij)
+        self.anuluj.clicked.connect(self.anulowanie)
+        self.ok.clicked.connect(self.akceptuj)
 
     def uaktualnij(self):
         self.wart1.setText(str(self.s.value()))
@@ -437,5 +438,5 @@ class Qt4MplCanvas(FigureCanvas):
         FigureCanvas.__init__(self, self.fig)
         self.setParent(parent)
         FigureCanvas.setSizePolicy(
-            self, QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         FigureCanvas.updateGeometry(self)

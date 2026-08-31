@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QDialog, QTableWidgetItem, QFileDialog, QMessageBox
-from PyQt5.QtGui import QFont, QColor
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QDialog, QTableWidgetItem, QFileDialog, QMessageBox
+from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtCore import Qt
 from ui_LDB_Ccresults import Ui_Dialog
 from ccopt_window import Options
 import classes
@@ -72,7 +72,7 @@ class Results(QDialog):
 
         else:
             # self.frm.show()
-            self.frm.exec_()
+            self.frm.exec()
 
             self.sst = self.frm.ui.comboBox_samps.currentText()
             self.rst = self.frm.ui.comboBox_refs.currentText()
@@ -122,7 +122,7 @@ class Results(QDialog):
         if not testrun:
             msgBox = QMessageBox()
             msgBox.setText('Report saved!')
-            msgBox.exec_()
+            msgBox.exec()
 
     def user_doubleclick(self, row, col):
         '''user doubleclicked one row, method checks if this is new selection
@@ -212,7 +212,8 @@ class Results(QDialog):
             twi = QTableWidgetItem(row)
             twi.setFont(fnt)
             twi.setForeground(QColor('red'))
-            twi.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            twi.setFlags(Qt.ItemFlag.ItemIsSelectable
+                         | Qt.ItemFlag.ItemIsEnabled)
             self.ui.tableWidget_results.setItem(i, 0, twi)
             self.ui.tableWidget_results.item(i, 0).setFont(fnt)
             self.ui.tableWidget_results.item(i, 0).setBackground(

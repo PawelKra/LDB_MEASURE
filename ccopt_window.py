@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QDialog
+from PyQt6.QtWidgets import QDialog
 from ui_LDB_Ccoptions import Ui_DialogOpt
 
 

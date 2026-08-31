@@ -1,6 +1,6 @@
 import logging
 import sys
-from PyQt5.QtWidgets import QMainWindow, QApplication
+from PyQt6.QtWidgets import QMainWindow, QApplication
 
 from ui_LDB_Measure import Ui_MainWindow
 import classes
@@ -96,6 +96,10 @@ class LDB_Form(QMainWindow,
         '''Clear all forms in MainWindows and sets all for new sample
         '''
 
+    # PanelMeasurements.keyPressEvent sits after QWidget in the MRO, so it never
+    # runs on its own; bind it here so the F3/F4/Space/arrow shortcuts work.
+    keyPressEvent = PanelMeasurements.keyPressEvent
+
     @UserDecorators.should_be_closed
     def show_settings(self):
         '''Show setting window where user can edit default dir, choose
@@ -105,7 +109,7 @@ class LDB_Form(QMainWindow,
         dont support metadata
         '''
         settwnd = SettWindow(self.setts)
-        settwnd.exec_()
+        settwnd.exec()
         # set new defaults if user made chages
         if settwnd.overwritten:
             self.ui.lineEdit_cat_means.setText(self.setts.def_cat)
@@ -121,5 +125,5 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     form = LDB_Form()
     form.show()
-    app.exec_()
+    app.exec()
     sys.exit(0)

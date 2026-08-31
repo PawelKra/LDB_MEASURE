@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QDialog, QTableWidgetItem, QInputDialog, \
+from PyQt6.QtWidgets import QDialog, QTableWidgetItem, QInputDialog, \
     QFileDialog
 from ui_LDB_Settings import Ui_Dialog
 
@@ -156,7 +156,8 @@ class SettWindow(QDialog):
             self,
             'Choose Directory:',
             self.setts.def_cat,
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+            QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontResolveSymlinks
         ))
         if dir not in ['None', '', 'NULL']:
             self.ui.g_sample_lineEdit.setText(dir)

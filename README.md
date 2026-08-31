@@ -5,19 +5,50 @@ To run this You will need measuring equipment (binoculars, encoder, counter and 
 
 ## Instalation
 
-Simply clone this repository and install all package from requirements:
+Clone this repository and install the packages from `requirements.txt`
+(runs on PyQt6 / Python 3.10+):
 
-* matplotlib==3.3.3
-* minimalmodbus==1.0.2
-* numpy==1.19.4
-* PyQt5==5.15.2
-* PyQt5-sip==12.8.1
-* pyserial==3.5
-* pytest==6.2.1
-* pytest-qt==3.3.0
+* matplotlib
+* minimalmodbus
+* numpy
+* PyQt6 (+ PyQt6-Qt6, PyQt6-sip)
+* pyserial
+* pytest, pytest-qt, pytest-mock, pytest-cov, pytest-timeout
 
+The `pytest*` packages are optional - install them only to run the tests.
 
-(last 2 are optional, install if You want run tests)
+### conda
+
+```
+conda create -n ldb python=3.12
+conda activate ldb
+pip install -r requirements.txt
+python LDB_Measure.py
+```
+
+## Tests
+
+```
+pytest testy/
+```
+
+`testy/conftest.py` forces `QT_QPA_PLATFORM=offscreen`, so the suite also runs
+head-less (CI, SSH without X) with no extra flags.
+
+GUI tests use `pytest-qt` (the `qtbot` fixture). Shared fixtures in
+`conftest.py`:
+
+* `fake_counter` - a scriptable stand-in for `devices.Device`; `.feed(120,
+  135, ...)` queues the 1/100 mm increments a user would crank out, and each
+  `read_measurement()` pops the next one. No hardware, no serial port.
+* `main_window` / `loaded_window` - a live `LDB_Form` wired to `fake_counter`,
+  optionally with three real samples loaded.
+* `no_modals` - neutralises every blocking dialog (`QMessageBox`,
+  `QInputDialog`, `QFileDialog`, sub-dialog `.exec()`), with knobs to steer
+  the answers.
+
+`devices.py` is unit-tested directly against a mocked `minimalmodbus` /
+`pyserial` (`test_devices.py`).
 
 
 ##  Other usage

@@ -3,7 +3,7 @@ import pytest
 import classes
 from ccres_window import Results
 from pytestqt import qtbot
-from PyQt5 import QtGui
+from PyQt6 import QtGui
 
 
 def test_choose_cc_job(qtbot):
