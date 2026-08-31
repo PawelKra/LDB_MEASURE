@@ -4,7 +4,6 @@ import classes
 from pytestqt import qtbot
 import sett_window
 from config import ReadConfig
-from PyQt5 import *
 
 
 def test_load_settings(qtbot):

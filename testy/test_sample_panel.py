@@ -3,7 +3,7 @@ import pytest
 import classes
 from pytestqt import qtbot
 import LDB_Measure
-from PyQt5 import *
+from PyQt5 import QtWidgets
 
 
 def test_open_window(qtbot):
