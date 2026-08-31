@@ -235,3 +235,31 @@ def test_rwl_strip_terminator():
     assert classes._rwl_strip_terminator([1, 2, -9999]) == [1, 2]
     assert classes._rwl_strip_terminator([1, 2, 3]) == [1, 2, 3]
     assert classes._rwl_strip_terminator([]) == []
+
+
+def _db_with_one():
+    db = classes.DataBase('s')
+    db.add_seq('s', {'A': classes.Sequence(
+        {'KeyCode': 'A', 'DateBegin': 1, 'measurements': [1, 2, 3]})})
+    return db
+
+
+def test_database_get_returns_the_sequence():
+    db = _db_with_one()
+    got = db.get('s', 'A')
+    assert got is not None and got.KeyCode() == 'A'
+
+
+def test_database_get_missing_key_returns_none_without_autoviv():
+    db = _db_with_one()
+    assert db.get('s', 'typo') is None
+    assert db.get('s', 'typo', default=0) == 0
+    # a bare self.base['s']['typo'] would have created an empty entry
+    assert db.count_seqs('s') == 1
+    assert 'typo' not in db.base['s']
+
+
+def test_database_get_missing_stack_returns_default():
+    db = _db_with_one()
+    assert db.get('nope', 'A') is None
+    assert 'nope' not in db.base

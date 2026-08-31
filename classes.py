@@ -1023,6 +1023,13 @@ class DataBase:
 
         return tab
 
+    def get(self, stack, key, default=None):
+        '''O(1) lookup of a single Sequence. Returns `default` when the
+        stack or key is missing - unlike a bare `self.base[stack][key]`
+        it does not auto-create an empty entry on a typo.
+        '''
+        return self.base.get(stack, {}).get(key, default)
+
     def count_seqs(self, stack):
         return len(self.base[stack].keys())
 

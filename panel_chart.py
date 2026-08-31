@@ -20,7 +20,9 @@ class PanelChart:
 
         sapdata = []  # list with SapWood data do draw on chart
         for i, name in enumerate(self.order):
-            smpl = list(self.stack.seq_from_stack('s', [name]).values())[0]
+            smpl = self.stack.get('s', name)
+            if smpl is None:
+                continue
 
             chdata.append([
                 [y for y in range(smpl.DateBegin(), smpl.DateEnd()+1)],
@@ -70,15 +72,16 @@ class PanelChart:
         if selected == 1 and len(self.order) > 1:
             ref = str(self.ui.tableWidget_meas.item(selrows[0], 0).text())
             corel = 'KEY   CC    TBP   TH    T     GLK   GLS   CDI'
+            ref_seq = self.stack.get('s', ref)
             for name in self.order:
                 if name == ref:
                     continue
+                smpl_seq = self.stack.get('s', name)
+                if smpl_seq is None or ref_seq is None:
+                    continue
                 corel += '\n' + ''.join(map(
                     classes.format_text_spaces,
-                    [name] + classes.corellate_position(
-                        self.stack.seq_from_stack('s', [name])[name],
-                        self.stack.seq_from_stack('s', [ref])[ref],
-                    )))
+                    [name] + classes.corellate_position(smpl_seq, ref_seq)))
 
             bbox_p = dict(boxstyle='square', fc='w', ec='0.5', alpha=0.7)
             self.ui.widget.canvas.ax.text(

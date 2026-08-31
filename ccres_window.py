@@ -90,15 +90,14 @@ class Results(QDialog):
             raw = list(filter(lambda x: x != '', it.split(' ')))
             sname = raw[0]
             rname = raw[1]
-            smps = self.stack.seq_from_stack(self.sst, [sname])
-            refs = self.stack.seq_from_stack(self.rst, [rname])
+            smpl = self.stack.get(self.sst, sname)
 
-            # get Sequence objects
-            if len(smps) != 1 or len(refs) != 1:
+            # both must exist in the database
+            if smpl is None or self.stack.get(self.rst, rname) is None:
                 continue
 
             dbeg = int(raw[-2])
-            smps[sname].setDateBegin(dbeg)
+            smpl.setDateBegin(dbeg)
             self.changed = True
             self.cancel()
 
@@ -140,11 +139,9 @@ class Results(QDialog):
         except IndexError:
             return
 
-        smps = self.stack.seq_from_stack(self.sst, [sname])
-        refs = self.stack.seq_from_stack(self.rst, [rname])
-
-        # get Sequence objects
-        if len(smps) != 1 or len(refs) != 1:
+        # both must exist in the database
+        if self.stack.get(self.sst, sname) is None \
+                or self.stack.get(self.rst, rname) is None:
             return
 
         color = QColor(255, 0, 0, 127)
@@ -342,14 +339,12 @@ class Results(QDialog):
 
         self.ui.widget.canvas.ax.clear()  # clean widet
 
-        smps = self.stack.seq_from_stack(self.sst, [sname])
-        refs = self.stack.seq_from_stack(self.rst, [rname])
+        smpl = self.stack.get(self.sst, sname)
+        ref = self.stack.get(self.rst, rname)
 
         # get Sequence objects
-        if len(smps) != 1 or len(refs) != 1:
+        if smpl is None or ref is None:
             return
-        smpl = smps[sname]
-        ref = refs[rname]
         dbeg = int(raw[-2])
 
         chdata = []  # list with data for every smpl to put on chart

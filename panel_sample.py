@@ -109,10 +109,9 @@ class PanelSample:
                     stmp.setDateBegin(dbeg)
                     # set proper KeyCode
                     kc = str(self.ui.tableWidget_meas.item(i, 0).text())
+                    src = self.stack.get('s', kc)
                     stmp.update_measurements(
-                        list(
-                            self.stack.seq_from_stack('s', [kc]).values()
-                        )[0].measurements())
+                        src.measurements() if src is not None else [])
                     adds = '_' + kc
                     if len(Mlist) > 0:
                         if kc == Mlist[0]:

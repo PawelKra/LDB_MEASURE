@@ -41,7 +41,12 @@ class PanelMeasurements:
 
         # get object with selected sequence
         name = self.ui.tableWidget_meas.item(rows[0], 0).text()
-        seq = self.stack.seq_from_stack('s', [name])[name]
+        seq = self.stack.get('s', name)
+        if seq is None:
+            msgBox = QMessageBox()
+            msgBox.setText('Sequence "%s" is not in the database.' % name)
+            msgBox.exec_()
+            return
 
         self.opened = seq  # set current seq to update measures later
         self.update_textedit_meas()
