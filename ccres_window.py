@@ -328,12 +328,12 @@ class Results(QDialog):
         max_year = max([dbeg+smpl.Length(), ref.DateEnd()]) + 7
 
         chdata.append([
-            [y for y in range(ref.DateBegin(), ref.DateEnd()+1)],
+            ref.years(),
             [x for x in ref.measurements()],
             ref.KeyCode()
         ])
         chdata.append([
-            [y for y in range(dbeg, dbeg+smpl.Length())],
+            classes.year_span(dbeg, smpl.Length()),   # sample at the trial date
             [x for x in smpl.measurements()],
             smpl.KeyCode()
         ])
@@ -348,6 +348,11 @@ class Results(QDialog):
         locator = 5 if (max_year-min_year) < 999 else 25
         self.ui.widget.canvas.ax.get_xaxis().set_minor_locator(
             matplotlib.ticker.MultipleLocator(locator))
+        # year 0 does not exist on a calendar axis
+        self.ui.widget.canvas.ax.get_xaxis().set_major_formatter(
+            matplotlib.ticker.FuncFormatter(
+                lambda v, pos: '' if round(v) == 0 else format(int(round(v)),
+                                                               'd')))
         self.ui.widget.canvas.ax.grid(axis='x', which='both')
         self.ui.widget.canvas.ax.grid(axis='x', which='minor', linewidth=0.2)
         self.ui.widget.canvas.ax.set_position([0.001, 0.07, 0.99, 0.91])

@@ -24,8 +24,9 @@ class PanelChart:
             if smpl is None:
                 continue
 
+            yrs = smpl.years()              # calendar years, never contains 0
             chdata.append([
-                [y for y in range(smpl.DateBegin(), smpl.DateEnd()+1)],
+                yrs,
                 [x+i*100 for x in smpl.measurements()],
             ])
 
@@ -33,10 +34,9 @@ class PanelChart:
                 # bold only the last `SapWood` rings (a ring count), clamped
                 # so it never runs past the start of the curve
                 sw = min(smpl.SapWood(), smpl.Length())
-                yrs = list(range(smpl.DateEnd()-sw+1, smpl.DateEnd()+1))
                 sapdata.append([
-                    yrs,
-                    [smpl.measure_from_year(x)+i*100 for x in yrs],
+                    yrs[-sw:],
+                    [x+i*100 for x in smpl.measurements()[-sw:]],
                 ])
 
             min_year.append(smpl.DateBegin())
@@ -64,6 +64,11 @@ class PanelChart:
         locator = 5 if (max_year-min_year) < 999 else 25
         self.ui.widget.canvas.ax.get_xaxis().set_minor_locator(
             matplotlib.ticker.MultipleLocator(locator))
+        # year 0 does not exist on a calendar axis - never label a tick "0"
+        self.ui.widget.canvas.ax.get_xaxis().set_major_formatter(
+            matplotlib.ticker.FuncFormatter(
+                lambda v, pos: '' if round(v) == 0 else format(int(round(v)),
+                                                               'd')))
         self.ui.widget.canvas.ax.grid(axis='x', which='both')
         self.ui.widget.canvas.ax.grid(axis='x', which='minor', linewidth=0.2)
         self.ui.widget.canvas.ax.set_position([0.001, 0.07, 0.99, 0.91])

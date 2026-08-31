@@ -29,11 +29,19 @@ python LDB_Measure.py
 ## Tests
 
 ```
-pytest testy/
+pytest                 # picks up testy/ from pytest.ini
+pytest --mpl           # also diff the chart against testy/baseline/*.png
 ```
 
-`testy/conftest.py` forces `QT_QPA_PLATFORM=offscreen`, so the suite also runs
-head-less (CI, SSH without X) with no extra flags.
+`pytest.ini` sets `filterwarnings = error` (a resource leak or a PyQt6 /
+matplotlib / numpy deprecation fails the run) and `testy/conftest.py` forces
+`QT_QPA_PLATFORM=offscreen`, so the suite runs head-less (CI, SSH without X)
+with no extra flags.
+
+Property-based tests (`hypothesis`) live in `test_properties.py`; the chart
+image-regression tests (`pytest-mpl`) in `test_charts_visual.py` - regenerate
+their baselines in this env with
+`pytest testy/test_charts_visual.py --mpl-generate-path=testy/baseline`.
 
 GUI tests use `pytest-qt` (the `qtbot` fixture). Shared fixtures in
 `conftest.py`:

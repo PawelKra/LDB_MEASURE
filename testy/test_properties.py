@@ -20,17 +20,20 @@ rings = st.lists(st.integers(min_value=1, max_value=9999),
                  min_size=1, max_size=200)
 small_rings = st.lists(st.integers(min_value=1, max_value=5000),
                        min_size=1, max_size=120)
-years = st.integers(min_value=-500, max_value=3000)
+# calendar years: no year 0 (1 BC == -1 is followed straight by 1 AD == 1)
+years = st.integers(min_value=-500, max_value=3000).filter(lambda y: y != 0)
 
 
 # --- Sequence invariants -------------------------------------------
 
 @given(meas=rings, beg=years)
-def test_dateend_is_always_begin_plus_length_minus_one(meas, beg):
+def test_dateend_is_the_last_year_of_the_span(meas, beg):
     s = classes.Sequence({'KeyCode': 'S', 'DateBegin': beg,
                           'measurements': list(meas)})
+    span = classes.year_span(s.DateBegin(), s.Length())
     assert s.Length() == len(meas)
-    assert s.DateEnd() == s.DateBegin() + s.Length() - 1
+    assert 0 not in span                        # calendars have no year 0
+    assert s.DateEnd() == span[-1]
 
 
 @given(meas=rings, beg=years, new_end=years)
@@ -44,6 +47,7 @@ def test_setdateend_moves_end_without_touching_the_rings(meas, beg, new_end):
     assert s.DateEnd() == new_end
     assert s.measurements() == before
     assert s.Length() == len(before)
+    assert s.DateBegin() != 0
 
 
 @given(meas=rings, beg=years, new_beg=years)
@@ -59,10 +63,12 @@ def test_setdatebegin_keeps_length(meas, beg, new_beg):
 def test_measure_from_year_matches_index(meas, beg):
     s = classes.Sequence({'KeyCode': 'S', 'DateBegin': beg,
                           'measurements': list(meas)})
+    span = s.years()
     for i, v in enumerate(meas):
-        assert s.measure_from_year(s.DateBegin() + i) == v
-    assert s.measure_from_year(s.DateBegin() - 1) is False
-    assert s.measure_from_year(s.DateEnd() + 1) is False
+        assert s.measure_from_year(span[i]) == v
+    assert s.measure_from_year(0) is False
+    assert s.measure_from_year(classes.shift_year(span[0], -1)) is False
+    assert s.measure_from_year(classes.shift_year(span[-1], 1)) is False
 
 
 @given(meas=rings, beg=years, val=st.integers(min_value=1, max_value=9999))
@@ -70,7 +76,7 @@ def test_add_then_delete_year_measurement_is_identity(meas, beg, val):
     s = classes.Sequence({'KeyCode': 'S', 'DateBegin': beg,
                           'measurements': list(meas)})
     n0 = s.Length()
-    y = s.DateBegin() + n0 // 2                 # somewhere inside the range
+    y = s.years()[n0 // 2]                      # somewhere inside the range
 
     s.add_year_measurement(y, val)
     assert s.Length() == n0 + 1

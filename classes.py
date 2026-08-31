@@ -19,6 +19,44 @@ def _intlike(v):
     return True
 
 
+def _year_at_offset(begin, offset):
+    '''The calendar year `offset` rings after the year `begin`.
+
+    There is no year 0: 1 BC (== -1) is immediately followed by 1 AD (== 1),
+    so a span that crosses the era boundary skips the 0 slot.
+    '''
+    y = begin + offset
+    if begin < 0 and y >= 0:
+        y += 1
+    return y
+
+
+def _offset_of_year(year, begin):
+    '''Ring index of calendar `year` in a series starting at `begin` -
+    the inverse of _year_at_offset (year 0 does not exist).'''
+    off = year - begin
+    if begin < 0 < year:
+        off -= 1
+    return off
+
+
+def year_span(begin, length):
+    '''The `length` consecutive calendar years starting at `begin`, skipping
+    the non-existent year 0.'''
+    return [_year_at_offset(begin, k) for k in range(length)]
+
+
+def shift_year(year, delta):
+    '''Move `year` by `delta` calendar years, stepping over the missing
+    year 0 (so shift_year(1, -1) == -1 and shift_year(-1, 1) == 1).'''
+    y = year + delta
+    if year < 0 <= y:
+        y += 1
+    elif year > 0 >= y:
+        y -= 1
+    return y
+
+
 def _fast_r(x, y):
     '''Pearson r of two equal-length float64 arrays.
 
@@ -849,6 +887,11 @@ class Sequence:
 
         if "DateBegin" not in self.sample.keys():
             self.sample["DateBegin"] = 1
+        try:
+            if int(self.sample["DateBegin"]) == 0:     # there is no year 0
+                self.sample["DateBegin"] = 1
+        except (TypeError, ValueError):
+            self.sample["DateBegin"] = 1
 
         # DateEnd / Length are always derived (DateBegin + measurements is the
         # single source of truth); normalise away any that came in with `dic`
@@ -859,7 +902,13 @@ class Sequence:
             meas = self.sample.get("measurements") or []
             if meas:
                 try:
-                    self.sample["DateBegin"] = int(end) + 1 - len(meas)
+                    end = int(end)
+                    if end == 0:
+                        end = 1
+                    begin = end - (len(meas) - 1)
+                    if begin <= 0 < end:              # crosses the era boundary
+                        begin -= 1
+                    self.sample["DateBegin"] = begin
                 except (TypeError, ValueError):
                     pass
 
@@ -885,9 +934,14 @@ class Sequence:
         return int(self.sample['DateBegin'])
 
     def DateEnd(self):
-        '''Last calendar year, derived: DateBegin + Length - 1.'''
+        '''Last calendar year, derived from DateBegin + Length (skipping the
+        non-existent year 0).'''
         lde = self.Length() - 1 if self.Length() > 0 else 0
-        return self.DateBegin() + lde
+        return _year_at_offset(self.DateBegin(), lde)
+
+    def years(self):
+        '''Calendar year of every ring, in order - never contains 0.'''
+        return year_span(self.DateBegin(), self.Length())
 
     def Length(self):
         '''Return len(measurements) of sample'''
@@ -946,10 +1000,11 @@ class Sequence:
 
     def measure_from_year(self, year):
         year = int(year)
-        if not self.DateBegin() <= year <= self.DateEnd():
+        if year == 0 or not self.DateBegin() <= year <= self.DateEnd():
             return False
         try:
-            return self.sample['measurements'][year-self.DateBegin()]
+            return self.sample['measurements'][
+                _offset_of_year(year, self.DateBegin())]
         except IndexError:
             return False
 
@@ -964,19 +1019,30 @@ class Sequence:
     def setDateBegin(self, val):
         # ustawiamy date poczatku, przyjmuje tylko wartosci int
         try:
-            self.sample['DateBegin'] = int(val)
-            self._edited = 1
-        except Exception:
+            v = int(val)
+        except (TypeError, ValueError):
             logger.warning("Only integer values are respected for DateBegin")
+            return
+        if v == 0:                       # there is no year 0
+            v = 1
+        self.sample['DateBegin'] = v
+        self._edited = 1
 
     def setDateEnd(self, val):
-        '''Set the last year - stored as DateBegin = val + 1 - Length so
-        there is a single source of truth.'''
+        '''Set the last year - DateBegin is back-derived from it (skipping the
+        non-existent year 0) so DateBegin stays the single source of truth.'''
         try:
-            self.sample['DateBegin'] = int(val) + 1 - self.Length()
-            self._edited = 1
-        except Exception:
+            end = int(val)
+        except (TypeError, ValueError):
             logger.warning("Only integer values are respected as DateEnd")
+            return
+        if end == 0:
+            end = 1
+        begin = end - (self.Length() - 1)
+        if begin <= 0 < end:             # the span crosses the era boundary
+            begin -= 1
+        self.sample['DateBegin'] = begin
+        self._edited = 1
 
     def update_measurements(self, val):
         self.sample['measurements'] = val
@@ -995,20 +1061,20 @@ class Sequence:
 
     def update_year_measurement(self, year, val):
         '''Updates increment in provided year'''
-        if not _intlike(year) or not str(val).isdigit():
+        if not _intlike(year) or not str(val).isdigit() or int(year) == 0:
             return False
         if self.DateBegin() <= int(year) <= self.DateEnd():
-            self.sample['measurements'][int(year)-self.sample['DateBegin']] =\
-                int(val)
+            self.sample['measurements'][
+                _offset_of_year(int(year), self.DateBegin())] = int(val)
 
     def add_year_measurement(self, year, val):
         '''Adds increment in year provided by user'''
-        if not _intlike(year) or not str(val).isdigit():
+        if not _intlike(year) or not str(val).isdigit() or int(year) == 0:
             return False
 
         if self.DateBegin() <= int(year) <= self.DateEnd():
             self.sample['measurements'].insert(
-                int(year)-self.sample['DateBegin'], int(val))
+                _offset_of_year(int(year), self.DateBegin()), int(val))
             return True
         return False
 
@@ -1016,11 +1082,12 @@ class Sequence:
         '''Deletes measurement in year, if year beyond datebegin or dateend
         reutns False
         '''
-        if not _intlike(year):
+        if not _intlike(year) or int(year) == 0:
             return False
 
         if self.DateBegin() <= int(year) <= self.DateEnd():
-            del self.sample['measurements'][int(year)-self.sample['DateBegin']]
+            del self.sample['measurements'][
+                _offset_of_year(int(year), self.DateBegin())]
             return True
         return False
 
@@ -1124,6 +1191,8 @@ class DataBase:
 
         data = []
         for i in range(miny, maxy + 1):
+            if i == 0:                       # there is no year 0
+                continue
             year_vals = [m for m in (val.measure_from_year(i)
                                      for val in seqs.values())
                          if m is not False]

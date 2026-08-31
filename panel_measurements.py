@@ -256,14 +256,14 @@ class PanelMeasurements:
             sel, rows = self.selected_twmeas_rows()
             for row in rows:
                 seq = self.stack.base['s'][self.order[row]]
-                seq.setDateBegin(seq.DateBegin()-1)
+                seq.setDateBegin(classes.shift_year(seq.DateBegin(), -1))
             self.sync_db_to_twmeas()
 
         if key == Qt.Key.Key_F4:
             sel, rows = self.selected_twmeas_rows()
             for row in rows:
                 seq = self.stack.base['s'][self.order[row]]
-                seq.setDateBegin(seq.DateBegin()+1)
+                seq.setDateBegin(classes.shift_year(seq.DateBegin(), 1))
             self.sync_db_to_twmeas()
 
         if key == Qt.Key.Key_Up:

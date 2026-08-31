@@ -12,6 +12,8 @@ import pytest
 from PyQt6.QtCore import Qt, QEvent
 from PyQt6.QtGui import QKeyEvent
 
+import classes
+
 
 def dispatch(win, key):
     ev = QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
@@ -22,11 +24,12 @@ def test_f3_shifts_selected_sample_one_year_earlier(loaded_window, select_rows):
     select_rows(loaded_window.ui.tableWidget_meas, 0)
     seq = loaded_window.stack.base['s'][loaded_window.order[0]]
     d0 = seq.DateBegin()
+    want = classes.shift_year(d0, -1)          # steps over year 0
 
     dispatch(loaded_window, Qt.Key.Key_F3)
 
-    assert seq.DateBegin() == d0 - 1
-    assert loaded_window.ui.tableWidget_meas.item(0, 1).text() == str(d0 - 1)
+    assert seq.DateBegin() == want
+    assert loaded_window.ui.tableWidget_meas.item(0, 1).text() == str(want)
 
 
 def test_f4_shifts_selected_sample_one_year_later(loaded_window, select_rows):
@@ -36,7 +39,7 @@ def test_f4_shifts_selected_sample_one_year_later(loaded_window, select_rows):
 
     dispatch(loaded_window, Qt.Key.Key_F4)
 
-    assert seq.DateBegin() == d0 + 1
+    assert seq.DateBegin() == classes.shift_year(d0, 1)
 
 
 def test_f3_moves_every_selected_sample(loaded_window, select_rows):
@@ -47,7 +50,8 @@ def test_f3_moves_every_selected_sample(loaded_window, select_rows):
 
     dispatch(loaded_window, Qt.Key.Key_F3)
 
-    assert (a.DateBegin(), c.DateBegin()) == (da - 1, dc - 1)
+    assert (a.DateBegin(), c.DateBegin()) == (classes.shift_year(da, -1),
+                                             classes.shift_year(dc, -1))
 
 
 def test_arrow_up_and_down_change_offset(main_window):
@@ -116,4 +120,4 @@ def test_f3_shifts_datebegin_via_real_keypress(loaded_window, qtbot,
     loaded_window.setFocus()
     QTest.keyClick(loaded_window, Qt.Key.Key_F3)
 
-    assert seq.DateBegin() == d0 - 1
+    assert seq.DateBegin() == classes.shift_year(d0, -1)
