@@ -3,11 +3,92 @@ import logging
 import os
 import math
 import struct
+import numpy as np
 from numpy import corrcoef as crosscoef
 from numpy import add
 from collections import Counter
 
 logger = logging.getLogger(__name__)
+
+
+def _fast_r(x, y):
+    '''Pearson r of two equal-length float64 arrays.
+
+    Returns nan for a degenerate input (too short, or zero variance) - a
+    constant series still emits numpy's RuntimeWarning on the divide, so the
+    behaviour matches numpy.corrcoef without its per-call object overhead.
+    '''
+    if x.shape[0] < 2:
+        return float('nan')
+    xm = x - x.mean()
+    ym = y - y.mean()
+    sxy = np.dot(xm, ym)
+    sxx = np.dot(xm, xm)
+    syy = np.dot(ym, ym)
+    return float(sxy / np.sqrt(sxx * syy))
+
+
+def _standardize(meas):
+    '''Build the offset-independent derived series for one measurement list.
+
+    Returns (raw, BP, H, GLK) as float64 / int64 arrays, bit-compatible with
+    the per-element loop it replaces:
+      raw  - measurements as float64
+      BP   - Baillie-Pilcher: log(ring / centred 5-yr mean), [0, 0]-padded
+      H    - Hollstein: log10(ring / next ring)
+      GLK  - 1 where the next ring is >= the current one
+    '''
+    f = np.asarray(meas, dtype=np.float64)
+    n = f.shape[0]
+
+    if n >= 5:
+        win = f[:-4] + f[1:-3] + f[2:-2] + f[3:-1] + f[4:]
+        bp = np.concatenate(([0.0, 0.0], np.log(5.0 * f[2:-2] / win)))
+    else:
+        bp = np.zeros(2, dtype=np.float64)
+
+    if n >= 2:
+        h = np.log(f[:-1] / f[1:]) / np.log(10.0)
+        g = (np.diff(f) >= 0).astype(np.int64)
+    else:
+        h = np.zeros(0, dtype=np.float64)
+        g = np.zeros(0, dtype=np.int64)
+
+    return f, bp, h, g
+
+
+def _stats_row(cc_ab, r_bp, r_h, n_raw, n_bp, n_h, glk, dl_a):
+    '''Assemble [crosscoef, TBP, TH, T, GLK, GSL, CDI] from the three
+    correlation coefficients and the GLK count. Same rounding, thresholds
+    and sentinels as the tail of correlation().
+    '''
+    row = [
+        round(cc_ab, 2),
+        round(_T(n_bp, r_bp), 1),
+        round(_T(n_h, r_h), 1),
+        round(_T(n_raw, cc_ab), 1),
+    ]
+
+    if glk > 0:
+        glkr = round((float(glk) / (n_raw - 1)) * 100)
+        row.append(glkr)
+        fr1 = 50 + (82.7 / math.sqrt(n_raw))
+        fr2 = 50 + (116.3 / math.sqrt(n_raw))
+        fr3 = 50 + (154 / math.sqrt(n_raw))
+        if fr1 <= glkr < fr2:
+            row.append("*")
+        elif fr2 <= glkr < fr3:
+            row.append("**")
+        elif glkr >= fr3:
+            row.append("***")
+        else:
+            row.append("")
+    else:
+        row.append(0.00001)
+        row.append("")
+
+    row.append(int(cdi(row[4], n_raw, dl_a, row[1], row[2])))
+    return row
 
 
 def read_fh(arg):  # noqa
@@ -450,132 +531,64 @@ def corellate(sample, reference, count=10):  # noqa
     returns [[crosscoef, TBP, TH, T, GLK, GSL, CDI,
              beg_from_ref, ovl, sample_name, ref_name], ...]
     '''
-    # a-sample
-    # b-ref
+    # a-sample, b-ref
     results = []
-    beg_a = 0
-    beg_b = 0
-    end_a = 0
-    end_b = 0
-    ovl = 0
-    # list of standarisations data
-    standBPa = [0, 0]
-    standBPb = [0, 0]
-    standHa = []
-    standHb = []
-    glka = []
-    glkb = []
-    # prepare lists with meas
     a = [sample.KeyCode(), sample.measurements()]
     b = [reference.KeyCode(), reference.measurements()]
+    na = len(a[1])
+    nb = len(b[1])
 
-    max_ovl = int(len(a[1]))  # max overlay set to length of sample
+    max_ovl = nb if nb < na else na  # max overlay (needed for cdi)
 
-    # if ref is shorther then change acordingly
-    if int(len(b[1])) < int(len(a[1])):
-        max_ovl = int(len(b[1]))
+    # derived series - depend only on the sample, so built once
+    af, bpa, ha, ga = _standardize(a[1])
+    bf, bpb, hb, gb = _standardize(b[1])
 
-    # compute standarizations
-    longer_sample = len(b[1])
-    if len(a[1]) > longer_sample:
-        longer_sample = len(a[1])
+    i = 25 - na
+    while i < nb - 25:
+        # the four alignment cases from the original code, kept verbatim
+        if i <= 0 and (na + i - 1) < nb:            # I
+            beg_b, end_b = 0, i + na
+            beg_a, end_a = na - (na + i), na
+            ovl = i + na
+        elif i <= 0:                                # II
+            beg_b, end_b = 0, nb
+            beg_a = na - (na + i)
+            end_a = beg_a + nb
+            ovl = nb
+        elif (na + i - 1) < nb:                     # III
+            beg_b, end_b = i, na + i
+            beg_a, end_a = 0, nb
+            ovl = na - 1
+        else:                                       # IV
+            beg_b, end_b = i, nb
+            beg_a, end_a = 0, nb - i
+            ovl = nb - i
 
-    for i in range(longer_sample):
-        # BP standarization
-        if i < len(a[1]) - 2 and i > 1:
-            standBPa.append((math.log(
-                (5 * float(a[1][i]))/sum(list(map(float, a[1][i-2:i+3])))
-            )))
-        if i < len(b[1]) - 2 and i > 1:
-            standBPb.append((math.log(
-                (5 * float(b[1][i]))/sum(list(map(float, b[1][i-2:i+3])))
-            )))
+        x_raw = af[beg_a:end_a]
+        y_raw = bf[beg_b:end_b]
+        x_bp = bpa[beg_a + 2:end_a - 2]
+        y_bp = bpb[beg_b + 2:end_b - 2]
+        x_h = ha[beg_a:end_a - 1]
+        y_h = hb[beg_b:end_b - 1]
 
-        # H standarization
-        if i < (len(a[1]) - 1):
-            standHa.append(
-                (math.log((float(a[1][i]) / float(a[1][i+1])), 10))
-            )
-        if i < (len(b[1]) - 1):
-            standHb.append(
-                (math.log((float(b[1][i]) / float(b[1][i + 1])), 10))
-            )
+        # GLK: intervals where both series move the same way
+        glk = int(np.count_nonzero(
+            ga[beg_a:end_a - 1] == gb[beg_b:end_b - 1]))
 
-        # GLK
-        if i < len(a[1]) - 1:
-            if (float(a[1][i + 1]) - float(a[1][i]) >= 0):
-                glka.append(1)
-            else:
-                glka.append(0)
-        if i < len(b[1]) - 1:
-            if (float(b[1][i + 1]) - float(b[1][i]) >= 0):
-                glkb.append(1)
-            else:
-                glkb.append(0)
+        row = _stats_row(
+            _fast_r(x_raw, y_raw),
+            _fast_r(x_bp, y_bp),
+            _fast_r(x_h, y_h),
+            x_raw.shape[0], x_bp.shape[0], x_h.shape[0],
+            glk, max_ovl)
 
-    i = 25 - len(a[1])
-    while i < len(b[1]) - 25:
-        # I: sample on left side and is shorter than ref
-        if i <= 0 and (len(a[1]) + i - 1) < len(b[1]):
-            beg_b = 0
-            end_b = i + len(a[1])
-            beg_a = len(a[1]) - (len(a[1]) + i)
-            end_a = len(a[1])
-            ovl = i + len(a[1])
-            glk_sklad = list(add(glka[beg_a:end_a - 1], glkb[beg_b:end_b - 1]))
-            # compute compatibility of sequences
-            glk = Counter(glk_sklad)[0] + Counter(glk_sklad)[2]
-
-        # II: sample on left size and is longer than ref
-        if i <= 0 and (len(a[1]) + i - 1) >= len(b[1]):
-            beg_b = 0
-            end_b = len(b[1])
-            beg_a = len(a[1]) - (len(a[1]) + i)
-            end_a = beg_a + len(b[1])
-            ovl = len(b[1])
-            glk_sklad = list(add(glka[beg_a:end_a - 1], glkb[beg_b:end_b - 1]))
-            glk = Counter(glk_sklad)[0] + Counter(glk_sklad)[2]
-
-        # III: sample has begining younger than ref beg and is shorter than ref
-        if i > 0 and (len(a[1]) + i - 1) < len(b[1]):
-            beg_b = i
-            end_b = len(a[1]) + i
-            beg_a = 0
-            end_a = len(b[1])
-            ovl = len(a[1]) - 1
-            glk_sklad = list(add(glka[beg_a:end_a - 1], glkb[beg_b:end_b - 1]))
-            glk = Counter(glk_sklad)[0] + Counter(glk_sklad)[2]
-
-        # IV: sample has begining younger than ref beg and is longer than ref
-        if i > 0 and (len(a[1]) + i - 1) >= len(b[1]):
-            beg_b = i
-            end_b = len(b[1])
-            beg_a = 0
-            end_a = len(b[1]) - i
-            ovl = len(b[1]) - i
-            glk_sklad = list(add(glka[beg_a:end_a - 1], glkb[beg_b:end_b - 1]))
-            glk = Counter(glk_sklad)[0] + Counter(glk_sklad)[2]
-
-        work_res = correlation(
-            a[1][beg_a: end_a],
-            b[1][beg_b: end_b],
-            max_ovl,
-            standBPa[beg_a + 2: end_a - 2],
-            standBPb[beg_b + 2: end_b - 2],
-            standHa[beg_a: end_a - 1],
-            standHb[beg_b: end_b - 1],
-            glk)
-
-        # movement from ref
-        work_res.append(i)  # begining
-        work_res.append(int(ovl))  # ovl
+        row.append(i)              # offset from ref
+        row.append(int(ovl))       # overlap
+        row.append(str(a[0]))      # sample name
+        row.append(str(b[0]))      # ref name
+        results.append(row)
         i += 1
-
-        # set keycodes
-        work_res.append(str(a[0]))  # sample
-        work_res.append(str(b[0]))  # ref
-
-        results.append(work_res)
 
     res = sorted(results, key=lambda x: x[6], reverse=True)
     return res[:count]

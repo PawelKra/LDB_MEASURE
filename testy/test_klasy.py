@@ -263,3 +263,36 @@ def test_database_get_missing_stack_returns_default():
     db = _db_with_one()
     assert db.get('nope', 'A') is None
     assert 'nope' not in db.base
+
+
+def test_standardize_matches_elementwise_reference():
+    import math as _m
+    meas = [120, 133, 118, 141, 152, 149, 130, 144, 160, 155, 148, 151, 139]
+    raw, bp, h, g = classes._standardize(meas)
+
+    assert list(raw) == [float(x) for x in meas]
+
+    ref_bp = [0.0, 0.0] + [
+        _m.log((5 * float(meas[i])) / sum(map(float, meas[i - 2:i + 3])))
+        for i in range(2, len(meas) - 2)]
+    assert bp == pytest.approx(ref_bp, abs=1e-12)
+
+    ref_h = [_m.log(float(meas[i]) / float(meas[i + 1]), 10)
+             for i in range(len(meas) - 1)]
+    assert h == pytest.approx(ref_h, abs=1e-12)
+
+    ref_g = [1 if meas[i + 1] - meas[i] >= 0 else 0
+             for i in range(len(meas) - 1)]
+    assert list(g) == ref_g
+
+
+def test_corellate_still_matches_correlation_at_offset_zero():
+    # the vectorised corellate and the untouched correlation() must agree
+    fh = classes.read_fh(['dane_test/proba_a.fh', 'dane_test/proba_b.fh'])
+    a, b = fh['proba_a'], fh['proba_b']
+    a.setDateBegin(1)
+    b.setDateBegin(1)
+    row = [r for r in classes.corellate(a, b, count=9999) if r[7] == 0][0]
+    pos = classes.corellate_position(a, b)
+    assert row[:5] == pos[:5]          # cc, TBP, TH, T, GLK
+    assert row[6] == pos[6]            # CDI
