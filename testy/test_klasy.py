@@ -139,3 +139,44 @@ def test_mean_calculation():
     assert mean.measure_from_year(117) == 0.01
     assert mean.measure_from_year(1) == 189
     assert f1['proba_b'].measurements()[-1] == mean.measurements()[-1]
+
+
+def test_read_fh_duplicate_keycode(tmp_path):
+    '''A repeated KeyCode in a multi-sample .fh gets a numbered suffix
+    instead of raising TypeError on the int concatenation.'''
+    fh = tmp_path / 'dup.fh'
+    fh.write_text(
+        'HEADER:\nKeyCode=DUP\nDateBegin=1\nDATA:Tree\n   10   20   30\n'
+        'HEADER:\nKeyCode=DUP\nDateBegin=1\nDATA:Tree\n   40   50   60\n'
+        'HEADER:\nKeyCode=OTHER\nDateBegin=1\nDATA:Tree\n   70   80   90\n'
+    )
+    ff = classes.read_fh([str(fh)])
+    assert set(ff.keys()) == {'DUP', 'DUP(1)', 'OTHER'}
+    assert ff['DUP'].measurements() == [10, 20, 30]
+    assert ff['DUP(1)'].measurements() == [40, 50, 60]
+
+
+def test_year_measurement_bad_input():
+    '''add/update_year_measurement reject the call when *either* argument
+    is non-numeric (guard is `or`, not `and`).'''
+    s = classes.Sequence({'KeyCode': 'x', 'DateBegin': 1,
+                          'measurements': [10, 20, 30, 40, 50]})
+
+    assert s.update_year_measurement(3, 'abc') is False
+    assert s.update_year_measurement('abc', 99) is False
+    assert s.add_year_measurement(3, 'abc') is False
+    assert s.add_year_measurement('abc', 99) is False
+    assert s.measurements() == [10, 20, 30, 40, 50]
+
+    s.update_year_measurement(3, 99)
+    assert s.measure_from_year(3) == 99
+
+
+def test_delete_year_str_input():
+    '''delete_year_measurement casts year to int before indexing, so a
+    string year deletes the right element instead of raising TypeError.'''
+    s = classes.Sequence({'KeyCode': 'x', 'DateBegin': 1,
+                          'measurements': [10, 20, 30, 40, 50]})
+
+    assert s.delete_year_measurement('3') is True
+    assert s.measurements() == [10, 20, 40, 50]

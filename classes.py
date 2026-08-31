@@ -68,7 +68,7 @@ def read_fh(arg):  # noqa
                         i = 0
                         while uniqe is False:
                             i += 1
-                            new_keycode = sample.KeyCode() + "(" + i + ")"
+                            new_keycode = sample.KeyCode() + "(" + str(i) + ")"
                             if new_keycode not in seq_dict.keys():
                                 # update sample name and add it to dict
                                 print(
@@ -906,7 +906,7 @@ class Sequence:
 
     def update_year_measurement(self, year, val):
         '''Updates increment in provided year'''
-        if not str(year).isdigit() and not str(val).isdigit():
+        if not str(year).isdigit() or not str(val).isdigit():
             return False
         if self.DateBegin() <= int(year) <= self.DateEnd():
             self.sample['measurements'][int(year)-self.sample['DateBegin']] =\
@@ -914,7 +914,7 @@ class Sequence:
 
     def add_year_measurement(self, year, val):
         '''Adds increment in year provided by user'''
-        if not str(year).isdigit() and not str(val).isdigit():
+        if not str(year).isdigit() or not str(val).isdigit():
             return False
 
         if self.DateBegin() <= int(year) <= self.DateEnd():
@@ -931,7 +931,7 @@ class Sequence:
             return False
 
         if self.DateBegin() <= int(year) <= self.DateEnd():
-            del self.sample['measurements'][year-self.sample['DateBegin']]
+            del self.sample['measurements'][int(year)-self.sample['DateBegin']]
             return True
         return False
 
