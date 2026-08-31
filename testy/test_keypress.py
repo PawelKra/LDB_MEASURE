@@ -89,3 +89,31 @@ def test_keypressevent_is_wired_to_the_window(main_window):
                    Qt.KeyboardModifier.NoModifier)
     main_window.keyPressEvent(ev)          # the window's own dispatch
     assert main_window.offset == start + 1
+
+
+# --- through real Qt key delivery (QTest.keyClick), not a hand-built event --
+
+def test_space_activates_a_measurement_via_real_keypress(
+        main_window, qtbot, fake_counter):
+    from PyQt6.QtTest import QTest
+    qtbot.mouseClick(main_window.ui.pushButton_new_sequence,
+                     Qt.MouseButton.LeftButton)
+    fake_counter.feed(182)
+
+    main_window.setFocus()
+    QTest.keyClick(main_window, Qt.Key.Key_Space)
+
+    assert main_window.opened.measurements() == [182]
+
+
+def test_f3_shifts_datebegin_via_real_keypress(loaded_window, qtbot,
+                                               select_rows):
+    from PyQt6.QtTest import QTest
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    seq = loaded_window.stack.base['s'][loaded_window.order[0]]
+    d0 = seq.DateBegin()
+
+    loaded_window.setFocus()
+    QTest.keyClick(loaded_window, Qt.Key.Key_F3)
+
+    assert seq.DateBegin() == d0 - 1
