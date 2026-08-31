@@ -836,6 +836,19 @@ class Sequence:
         if "DateBegin" not in self.sample.keys():
             self.sample["DateBegin"] = 1
 
+        # DateEnd / Length are always derived (DateBegin + measurements is the
+        # single source of truth); normalise away any that came in with `dic`
+        # so the getters can stay side-effect free
+        self.sample.pop("Length", None)
+        if "DateEnd" in self.sample:
+            end = self.sample.pop("DateEnd")
+            meas = self.sample.get("measurements") or []
+            if meas:
+                try:
+                    self.sample["DateBegin"] = int(end) + 1 - len(meas)
+                except (TypeError, ValueError):
+                    pass
+
         self.forb_keys = {'measurements', 'DateEnd', 'Length'}
         self._edited = 0  # edited=1, not edited=0
 
@@ -853,16 +866,12 @@ class Sequence:
             logger.warning("No metadata: KeyCode")
 
     def DateBegin(self):
-        if "DateEnd" in self.sample.keys() and \
-                "measurements" in self.sample.keys():
-            if len(self.sample['measurements']) > 0:
-                self.setDateEnd(self.sample['DateEnd'])
-            else:
-                logger.warning("No measurements in sample, DateBegin set to 1")
-
+        '''First calendar year. Pure getter: DateBegin is the single stored
+        source of truth, DateEnd and Length are derived from it.'''
         return int(self.sample['DateBegin'])
 
     def DateEnd(self):
+        '''Last calendar year, derived: DateBegin + Length - 1.'''
         lde = self.Length() - 1 if self.Length() > 0 else 0
         return self.DateBegin() + lde
 
@@ -909,7 +918,7 @@ class Sequence:
         # zwraca cala tablice z danymi opisowymi
         out = ''
         for k in self.sample.keys():
-            if k != 'measurements':
+            if k not in self.forb_keys:
                 out += k + "=" + str(self.sample[k]) + "\n"
         out += "DateEnd=" + str(self.DateEnd()) + "\n"
         out += "Length=" + str(self.Length()) + "\n"
@@ -932,12 +941,11 @@ class Sequence:
 
     # update methods
     def set_meta(self, header, val):
+        '''Set a metadata field. DateEnd / Length / measurements are derived
+        and cannot be set here - use setDateEnd / update_measurements.'''
         if header not in self.forb_keys:
             self.sample[header] = val
             self._edited = 1
-
-        if header == "DateEnd":
-            self.setDateEnd(val)
 
     def setDateBegin(self, val):
         # ustawiamy date poczatku, przyjmuje tylko wartosci int
@@ -948,15 +956,11 @@ class Sequence:
             logger.warning("Only integer values are respected for DateBegin")
 
     def setDateEnd(self, val):
+        '''Set the last year - stored as DateBegin = val + 1 - Length so
+        there is a single source of truth.'''
         try:
-            if 'measurements' in self.sample.keys():
-                self.sample['DateBegin'] = (
-                    int(val) + 1 - len(self.sample['measurements']))
-                self._edited = 1
-                if 'DateEnd' in self.sample.keys():
-                    del self.sample['DateEnd']
-            else:
-                self.sample['DateEnd'] = int(val)
+            self.sample['DateBegin'] = int(val) + 1 - self.Length()
+            self._edited = 1
         except Exception:
             logger.warning("Only integer values are respected as DateEnd")
 

@@ -331,3 +331,46 @@ def test_offset_curves_match_a_naive_per_offset_loop():
             float(r_bp[k]), rel=1e-9, abs=1e-9, nan_ok=True)
         assert int(glk[k]) == int(np.count_nonzero(
             ga[beg_a:end_a - 1] == gb[beg_b:beg_b + mm - 1]))
+
+
+def test_datebegin_getter_is_pure():
+    '''DateBegin / DateEnd / Length never mutate the Sequence.'''
+    fh = classes.read_fh(['dane_test/proba_a.fh'])
+    seqs = [
+        fh['proba_a'],
+        classes.Sequence({'KeyCode': 'x', 'DateBegin': 1500,
+                          'measurements': [10, 20, 30, 40, 50]}),
+        classes.Sequence({'KeyCode': 'y', 'measurements': [1, 2, 3]}),
+    ]
+    for s in seqs:
+        before = dict(s.sample)
+        vals = {(s.DateBegin(), s.DateEnd(), s.Length()) for _ in range(5)}
+        assert len(vals) == 1                    # stable across calls
+        assert s.sample == before                # object untouched
+        assert 'DateEnd' not in s.sample and 'Length' not in s.sample
+
+
+def test_construct_with_dateend_key_is_normalised():
+    s = classes.Sequence({'KeyCode': 'z', 'DateEnd': 2016,
+                          'measurements': list(range(71))})
+    assert 'DateEnd' not in s.sample
+    assert s.DateBegin() == 1946                 # 2016 + 1 - 71
+    assert s.DateEnd() == 2016
+    assert s.DateBegin() == 1946                 # still, after reading DateEnd
+
+
+def test_set_meta_does_not_touch_the_date():
+    s = classes.Sequence({'KeyCode': 'q', 'DateBegin': 800,
+                          'measurements': [1, 2, 3, 4, 5]})
+    s.set_meta('DateEnd', 9999)                  # was a hidden setDateEnd
+    s.set_meta('Length', 1)
+    assert s.DateBegin() == 800 and s.DateEnd() == 804
+    assert 'DateEnd' not in s.sample and 'Length' not in s.sample
+
+
+def test_setdateend_writes_datebegin():
+    s = classes.Sequence({'KeyCode': 'w', 'DateBegin': 1,
+                          'measurements': list(range(71))})
+    s.setDateEnd(2016)
+    assert s.DateBegin() == 1946 and s.DateEnd() == 2016
+    assert 'DateEnd' not in s.sample
