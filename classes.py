@@ -426,7 +426,7 @@ def _T(n, r):
     # r - coeff comparing seq
     try:
         t = (float(r)*math.sqrt(float(n)-2))/(math.sqrt(1-(float(r)*float(r))))
-    except ZeroDivisionError:
+    except (ZeroDivisionError, ValueError):
         return 1
     return t
 
@@ -595,8 +595,11 @@ def correlation(a, b, dl_a, standBPa, standBPb, standHa, standHb, glk):
     a = list(map(float, a))
     b = list(map(float, b))
 
+    # raw Pearson coefficient, reused for the unstandardised T below
+    cc_ab = float(crosscoef(a, b)[1][0])
+
     # calculate crosscoef
-    result.append(round(float(crosscoef(a, b)[1][0]), 2))
+    result.append(round(cc_ab, 2))
 
     # T for BP standarization
     val = round(_T(len(standBPa),
@@ -609,7 +612,7 @@ def correlation(a, b, dl_a, standBPa, standBPb, standHa, standHb, glk):
     result.append(val)
 
     # T whithout standarization
-    val = round(_T(len(a), float(crosscoef(a, b)[1][0])), 1)
+    val = round(_T(len(a), cc_ab), 1)
     result.append(val)
 
     if glk > 0:
