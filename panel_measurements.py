@@ -1,8 +1,12 @@
+import logging
+
 from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox
 from PyQt5.QtCore import Qt
 from user_decorators import UserDecorators
 from ccres_window import Results
 import classes
+
+logger = logging.getLogger(__name__)
 
 
 class PanelMeasurements:
@@ -82,11 +86,11 @@ class PanelMeasurements:
             corw.load_result()
             corw.exec_()
             self.sync_db_to_twmeas()
-        except Exception:
+        except (KeyError, ValueError) as err:
+            logger.exception("crossdating failed")
             msgBox = QMessageBox()
-            msgBox.setText('Ooops! Something goes wrong! Is it me or You?')
+            msgBox.setText('Crossdating could not run: %s' % err)
             msgBox.exec_()
-            return
 
     @UserDecorators.should_be_closed
     def create_mean(self):
