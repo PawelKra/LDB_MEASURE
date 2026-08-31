@@ -287,7 +287,7 @@ def test_standardize_matches_elementwise_reference():
 
 
 def test_corellate_still_matches_correlation_at_offset_zero():
-    # the vectorised corellate and the untouched correlation() must agree
+    # the vectorised corellate and corellate_position must agree at offset 0
     fh = classes.read_fh(['dane_test/proba_a.fh', 'dane_test/proba_b.fh'])
     a, b = fh['proba_a'], fh['proba_b']
     a.setDateBegin(1)
@@ -296,3 +296,38 @@ def test_corellate_still_matches_correlation_at_offset_zero():
     pos = classes.corellate_position(a, b)
     assert row[:5] == pos[:5]          # cc, TBP, TH, T, GLK
     assert row[6] == pos[6]            # CDI
+
+
+def test_offset_curves_match_a_naive_per_offset_loop():
+    '''_offset_curves (one np.correlate + prefix sums per metric) must equal
+    the straightforward slice-by-slice computation it replaced.'''
+    import numpy as np
+    fh = classes.read_fh(['dane_test/proba_a.fh', 'dane_test/proba_b.fh'])
+    am = fh['proba_a'].measurements()
+    bm = fh['proba_b'].measurements()
+    na, nb = len(am), len(bm)
+    lags = np.arange(25 - na, nb - 25, dtype=np.int64)
+
+    af, bpa, ha, ga = classes._standardize(am)
+    bf, bpb, hb, gb = classes._standardize(bm)
+    r_raw, r_bp, r_h, glk, m, ovl = classes._offset_curves(
+        af, bf, bpa, bpb, ha, hb, ga, gb, lags)
+
+    for k, i in enumerate(lags.tolist()):
+        beg_a, end_a = max(0, -i), min(na, nb - i)
+        beg_b = max(0, i)
+        mm = end_a - beg_a
+        exp_ovl = mm - (1 if (i > 0 and na + i - 1 < nb) else 0)
+        assert int(m[k]) == mm
+        assert int(ovl[k]) == exp_ovl
+        assert classes._fast_r(af[beg_a:end_a],
+                               bf[beg_b:beg_b + mm]) == pytest.approx(
+            float(r_raw[k]), rel=1e-9, abs=1e-9, nan_ok=True)
+        assert classes._fast_r(ha[beg_a:end_a - 1],
+                               hb[beg_b:beg_b + mm - 1]) == pytest.approx(
+            float(r_h[k]), rel=1e-9, abs=1e-9, nan_ok=True)
+        assert classes._fast_r(bpa[beg_a + 2:end_a - 2],
+                               bpb[beg_b + 2:beg_b + mm - 2]) == pytest.approx(
+            float(r_bp[k]), rel=1e-9, abs=1e-9, nan_ok=True)
+        assert int(glk[k]) == int(np.count_nonzero(
+            ga[beg_a:end_a - 1] == gb[beg_b:beg_b + mm - 1]))

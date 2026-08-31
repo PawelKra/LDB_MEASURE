@@ -89,6 +89,90 @@ def _stats_row(cc_ab, r_bp, r_h, n_raw, n_bp, n_h, glk, dl_a):
     return row
 
 
+def _prefix(v):
+    '''[0, cumsum(v)...] - length len(v) + 1, so a window sum over [beg, end)
+    is prefix[end] - prefix[beg].'''
+    out = np.empty(v.shape[0] + 1, dtype=np.float64)
+    out[0] = 0.0
+    np.cumsum(v, out=out[1:])
+    return out
+
+
+def _r_curve(n, sx, sxx, sy, syy, sxy):
+    '''Pearson r for every lag from centred window moments (arrays).'''
+    cov = sxy - sx * sy / n
+    vx = sxx - sx * sx / n
+    vy = syy - sy * sy / n
+    return cov / np.sqrt(vx * vy)
+
+
+def _offset_curves(af, bf, bpa, bpb, ha, hb, ga, gb, lags):
+    '''Vectorised replacement for the per-offset loop of corellate().
+
+    For every lag in `lags` (b-index = a-index + lag) return arrays
+    (r_raw, r_bp, r_h, glk, m, ovl). The three Pearson curves come from one
+    np.correlate per metric plus prefix sums; GLK from a binary
+    cross-correlation. Inputs are the _standardize() outputs of each series.
+    '''
+    na, nb = af.shape[0], bf.shape[0]
+
+    # aligned windows - the four alignment cases of the original code reduce
+    # to this (verified against the case-by-case beg/end/ovl)
+    beg_a = np.maximum(0, -lags)
+    end_a = np.minimum(na, nb - lags)
+    beg_b = np.maximum(0, lags)
+    m = end_a - beg_a
+    # ovl == m everywhere except case III (sample strictly inside a longer
+    # ref, shifted right), where the original reports m - 1
+    ovl = m - ((lags > 0) & (na + lags - 1 < nb)).astype(np.int64)
+
+    # centre each series once (global mean) - keeps the moment sums well
+    # conditioned; the additive constant cancels in a Pearson r
+    afc, bfc = af - af.mean(), bf - bf.mean()
+    bpac, bpbc = bpa - bpa.mean(), bpb - bpb.mean()
+    hac, hbc = ha - ha.mean(), hb - hb.mean()
+
+    # --- raw: window is exactly the natural a/b overlap ---
+    ca, ca2 = _prefix(afc), _prefix(afc * afc)
+    cb, cb2 = _prefix(bfc), _prefix(bfc * bfc)
+    xr = np.correlate(afc, bfc, mode='full')
+    sx, sxx = ca[end_a] - ca[beg_a], ca2[end_a] - ca2[beg_a]
+    sy, syy = cb[beg_b + m] - cb[beg_b], cb2[beg_b + m] - cb2[beg_b]
+    r_raw = _r_curve(m, sx, sxx, sy, syy, xr[nb - 1 - lags])
+
+    # --- H: window is also the natural overlap, one shorter ---
+    n_h = m - 1
+    cha, cha2 = _prefix(hac), _prefix(hac * hac)
+    chb, chb2 = _prefix(hbc), _prefix(hbc * hbc)
+    xh = np.correlate(hac, hbc, mode='full')
+    sx, sxx = cha[beg_a + n_h] - cha[beg_a], cha2[beg_a + n_h] - cha2[beg_a]
+    sy, syy = chb[beg_b + n_h] - chb[beg_b], chb2[beg_b + n_h] - chb2[beg_b]
+    r_h = _r_curve(n_h, sx, sxx, sy, syy, xh[nb - 2 - lags])
+
+    # --- BP: natural overlap minus its first two positions (the [0,0] pad /
+    #     the 2 rings BP cannot use); subtract those two products by hand ---
+    n_bp = m - 4
+    cba, cba2 = _prefix(bpac), _prefix(bpac * bpac)
+    cbb, cbb2 = _prefix(bpbc), _prefix(bpbc * bpbc)
+    xb = np.correlate(bpac, bpbc, mode='full')
+    lo_a, lo_b = beg_a + 2, beg_b + 2
+    sx, sxx = cba[lo_a + n_bp] - cba[lo_a], cba2[lo_a + n_bp] - cba2[lo_a]
+    sy, syy = cbb[lo_b + n_bp] - cbb[lo_b], cbb2[lo_b + n_bp] - cbb2[lo_b]
+    drop = (bpac[beg_a] * bpbc[beg_b] +
+            bpac[beg_a + 1] * bpbc[beg_b + 1])
+    r_bp = _r_curve(n_bp, sx, sxx, sy, syy, xb[nb - 3 - lags] - drop)
+
+    # --- GLK: agreements = (m-1) - Σga - Σgb + 2 Σ ga·gb ---
+    gaf, gbf = ga.astype(np.float64), gb.astype(np.float64)
+    cga, cgb = _prefix(gaf), _prefix(gbf)
+    xg = np.correlate(gaf, gbf, mode='full')
+    sga = cga[beg_a + n_h] - cga[beg_a]
+    sgb = cgb[beg_b + n_h] - cgb[beg_b]
+    glk = np.rint(n_h - sga - sgb + 2.0 * xg[nb - 2 - lags]).astype(np.int64)
+
+    return r_raw, r_bp, r_h, glk, m, ovl
+
+
 def read_fh(arg):  # noqa
     '''
     Fuction to read measurements from fh file and put it in Sequence object
@@ -516,6 +600,16 @@ def _T(n, r):
     return t
 
 
+def _T_curve(n, r):
+    '''Vectorised _T. Returns 1 exactly where the scalar catches a
+    ValueError / ZeroDivisionError (|r| >= 1, or n < 2).'''
+    n = np.asarray(n, dtype=np.float64)
+    r = np.asarray(r, dtype=np.float64)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        t = r * np.sqrt(n - 2.0) / np.sqrt(1.0 - r * r)
+    return np.where(np.isfinite(t) & (n >= 2.0), t, 1.0)
+
+
 def cdi(glk_value, section, sample_len, TBP, TH):
     t = (float(TBP)+float(TH))/2
     ret = (((float(glk_value)-50) +
@@ -529,67 +623,52 @@ def corellate(sample, reference, count=10):  # noqa
     returns [[crosscoef, TBP, TH, T, GLK, GSL, CDI,
              beg_from_ref, ovl, sample_name, ref_name], ...]
     '''
-    # a-sample, b-ref
-    results = []
-    a = [sample.KeyCode(), sample.measurements()]
-    b = [reference.KeyCode(), reference.measurements()]
-    na = len(a[1])
-    nb = len(b[1])
+    a_name, am = str(sample.KeyCode()), sample.measurements()
+    b_name, bm = str(reference.KeyCode()), reference.measurements()
+    na, nb = len(am), len(bm)
+
+    lags = np.arange(25 - na, nb - 25, dtype=np.int64)
+    if lags.shape[0] == 0 or na < 5 or nb < 5:
+        return []
 
     max_ovl = nb if nb < na else na  # max overlay (needed for cdi)
 
-    # derived series - depend only on the sample, so built once
-    af, bpa, ha, ga = _standardize(a[1])
-    bf, bpb, hb, gb = _standardize(b[1])
+    af, bpa, ha, ga = _standardize(am)
+    bf, bpb, hb, gb = _standardize(bm)
 
-    i = 25 - na
-    while i < nb - 25:
-        # the four alignment cases from the original code, kept verbatim
-        if i <= 0 and (na + i - 1) < nb:            # I
-            beg_b, end_b = 0, i + na
-            beg_a, end_a = na - (na + i), na
-            ovl = i + na
-        elif i <= 0:                                # II
-            beg_b, end_b = 0, nb
-            beg_a = na - (na + i)
-            end_a = beg_a + nb
-            ovl = nb
-        elif (na + i - 1) < nb:                     # III
-            beg_b, end_b = i, na + i
-            beg_a, end_a = 0, nb
-            ovl = na - 1
-        else:                                       # IV
-            beg_b, end_b = i, nb
-            beg_a, end_a = 0, nb - i
-            ovl = nb - i
+    r_raw, r_bp, r_h, glk, m, ovl = _offset_curves(
+        af, bf, bpa, bpb, ha, hb, ga, gb, lags)
+    n_bp = m - 4
+    n_h = m - 1
 
-        x_raw = af[beg_a:end_a]
-        y_raw = bf[beg_b:end_b]
-        x_bp = bpa[beg_a + 2:end_a - 2]
-        y_bp = bpb[beg_b + 2:end_b - 2]
-        x_h = ha[beg_a:end_a - 1]
-        y_h = hb[beg_b:end_b - 1]
+    # rank every offset by CDI with a vectorised copy of the _stats_row math
+    # (verified equal to the scalar path to the last digit), then build only
+    # the `count` winning rows through the scalar _stats_row so their exact
+    # rounding / GSL / cdi values stay identical to the golden
+    tbp = np.round(_T_curve(n_bp, r_bp), 1)
+    th = np.round(_T_curve(n_h, r_h), 1)
+    glkr = np.round(glk / (m - 1) * 100)
+    glk_for_cdi = np.where(glk > 0, glkr, 0.00001)
+    tmean = (tbp + th) / 2.0
+    ret = (((glk_for_cdi - 50) + 50 * np.sqrt(m / max_ovl)) * tmean) / 10.0
+    cdi_curve = np.where(ret < 1000, np.round(ret, 0), 1000.0)
 
-        # GLK: intervals where both series move the same way
-        glk = int(np.count_nonzero(
-            ga[beg_a:end_a - 1] == gb[beg_b:end_b - 1]))
+    order = np.argsort(-cdi_curve, kind='stable')[:count]
 
+    results = []
+    for k in order:
+        k = int(k)
         row = _stats_row(
-            _fast_r(x_raw, y_raw),
-            _fast_r(x_bp, y_bp),
-            _fast_r(x_h, y_h),
-            x_raw.shape[0], x_bp.shape[0], x_h.shape[0],
-            glk, max_ovl)
-
-        row.append(i)              # offset from ref
-        row.append(int(ovl))       # overlap
-        row.append(str(a[0]))      # sample name
-        row.append(str(b[0]))      # ref name
+            float(r_raw[k]), float(r_bp[k]), float(r_h[k]),
+            int(m[k]), int(n_bp[k]), int(n_h[k]),
+            int(glk[k]), max_ovl)
+        row.append(int(lags[k]))     # offset from ref
+        row.append(int(ovl[k]))      # overlap
+        row.append(a_name)
+        row.append(b_name)
         results.append(row)
-        i += 1
 
-    res = sorted(results, key=lambda x: x[6], reverse=True)
-    return res[:count]
+    return results
 
 
 def corellate_position(a, b):  # noqa
