@@ -286,17 +286,23 @@ def write_r(fn, arg):
         meas_file.write(seq)
 
 
+def _rwl_strip_terminator(meas):
+    """Drop the trailing Tucson end-of-series marker (999 or -9999)."""
+    if meas and meas[-1] in (999, -9999):
+        return meas[:-1]
+    return meas
+
+
 def read_rwl(fn):
     """
-    Reads rwl files saved i tucson format, no metadata wil be stored in
+    Reads rwl files saved in tucson format, no metadata will be stored in
     sample file
     fn - path to file with samples
     return dict with Sequence objects
     """
-    first = 0  # trigg for first sample
-    sample = Sequence({})
-    meas_list = []  # measurement list
-    name = ''  # name of current sample
+    sample = None  # sample currently being read
+    meas_list = []  # its measurements so far
+    name = ''  # its 8-char name prefix
     seq_dict = {}  # dict with processed samples
 
     with open(fn, 'r') as meas_file:
@@ -305,36 +311,34 @@ def read_rwl(fn):
     for line in rwl_lines:
         line = line.rstrip('\n\r')
 
-        # filter all None values from list
+        # split on spaces, drop empty fields; skip blank / whitespace lines
         val = list(filter(None, line.split(" ")))
+        if not val:
+            continue
 
-        if len(val[0]) < 9:  # if seq name is less than 9 signs
-            ww = val    # let assume name is ok
-        else:  # if not, we should do it by slices
-            ww = []
-            ww.append(line[:8])  # name of sample
-            ww.append(int(line[8:12].replace(' ', '')))  # Date begin
+        if len(val[0]) < 9:  # name field is separated from the first value
+            ww = val
+        else:  # name is glued to the year / values, split by column
+            ww = [line[:8], int(line[8:12].replace(' ', ''))]
             i = 12
             while i < len(line):
                 ww.append(str(int(line[i:i+6])))
-                i = i+6
+                i = i + 6
 
-        if ww[0] != name and len(ww) > 0:
-            # if first sample, we need to set evrything up
-            if first == 1:
-                sample.update_measurements(meas_list[:-1])
+        if ww[0] != name:
+            # a new sample starts: close the previous one first
+            if sample is not None:
+                sample.update_measurements(_rwl_strip_terminator(meas_list))
                 seq_dict[str(sample.KeyCode())] = sample
-                first = 1
             name = ww[0]
-
-            # set new sample
             sample = Sequence({"KeyCode": ww[0], "DateBegin": ww[1]})
-            meas_list = [int(x) for x in ww[2:]]  # add meas from current line
+            meas_list = [int(x) for x in ww[2:]]
         else:
-            meas_list += list(map(int, ww[2:]))  # add meas from another lines
+            meas_list += [int(x) for x in ww[2:]]
 
-        # add meas without last 999, which is end of measurements
-        sample.update_measurements(meas_list[:-1])
+    # close the final sample
+    if sample is not None:
+        sample.update_measurements(_rwl_strip_terminator(meas_list))
         seq_dict[str(sample.KeyCode())] = sample
 
     return seq_dict

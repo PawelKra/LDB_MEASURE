@@ -180,3 +180,58 @@ def test_delete_year_str_input():
 
     assert s.delete_year_measurement('3') is True
     assert s.measurements() == [10, 20, 40, 50]
+
+
+MULTI_RWL = os.path.join(os.path.dirname(__file__), 'data', 'multi.rwl')
+
+
+def test_read_rwl_multi_sample():
+    '''Three concatenated Tucson series with different DateBegin, plus blank
+    separator lines, all read back with the right span and measurements.'''
+    ff = classes.read_rwl(MULTI_RWL)
+    assert sorted(ff) == ['MULTI_AA', 'MULTI_BB', 'MULTI_CC']
+
+    assert ff['MULTI_AA'].DateBegin() == 1801
+    assert ff['MULTI_AA'].Length() == 45
+    assert ff['MULTI_BB'].DateBegin() == 1850
+    assert ff['MULTI_BB'].Length() == 63
+    assert ff['MULTI_CC'].DateBegin() == 1795
+    assert ff['MULTI_CC'].Length() == 120
+
+    # 999 terminator is stripped, not counted, and not left in the data
+    for seq in ff.values():
+        assert 999 not in seq.measurements()[-1:]
+
+
+def test_read_rwl_skips_blank_lines(tmp_path):
+    rwl = tmp_path / 'blanks.rwl'
+    rwl.write_text(
+        'SMPL_X 1900    50    51    52    53    54\n'
+        'SMPL_X 1905    55    56    57   999\n'
+        '\n'
+        '   \n'
+        'SMPL_Y 1800    10    11    12    13\n'
+        'SMPL_Y 1804    14    15   999\n'
+    )
+    ff = classes.read_rwl(str(rwl))
+    assert sorted(ff) == ['SMPL_X', 'SMPL_Y']
+    assert ff['SMPL_X'].DateBegin() == 1900
+    assert ff['SMPL_X'].measurements() == [50, 51, 52, 53, 54, 55, 56, 57]
+    assert ff['SMPL_Y'].measurements() == [10, 11, 12, 13, 14, 15]
+
+
+def test_read_rwl_without_terminator_keeps_last_value(tmp_path):
+    rwl = tmp_path / 'noend.rwl'
+    rwl.write_text(
+        'NOEND  1700    20    21    22\n'
+        'NOEND  1703    23    24    25\n'
+    )
+    ff = classes.read_rwl(str(rwl))
+    assert ff['NOEND'].measurements() == [20, 21, 22, 23, 24, 25]
+
+
+def test_rwl_strip_terminator():
+    assert classes._rwl_strip_terminator([1, 2, 999]) == [1, 2]
+    assert classes._rwl_strip_terminator([1, 2, -9999]) == [1, 2]
+    assert classes._rwl_strip_terminator([1, 2, 3]) == [1, 2, 3]
+    assert classes._rwl_strip_terminator([]) == []
