@@ -1,4 +1,5 @@
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 import logging
 import os
 import math
@@ -669,6 +670,97 @@ def corellate(sample, reference, count=10):  # noqa
         results.append(row)
 
     return results
+
+
+def _mirror_rows(rows):
+    '''The reverse view of a result list: offset sign flipped, the two name
+    columns swapped.'''
+    return [r[:7] + [-r[7], r[8], r[10], r[9]] for r in rows]
+
+
+def _cd_batch(rname, rmeas, sample_names, samples, count):
+    '''corellate one reference against every named sample. `samples` maps
+    name -> measurement list.'''
+    ref = Sequence({'KeyCode': rname, 'measurements': list(rmeas)})
+    out = []
+    for sname in sample_names:
+        smp = Sequence({'KeyCode': sname,
+                        'measurements': list(samples[sname])})
+        out.append((sname, corellate(smp, ref, count)))
+    return out
+
+
+_CD_SAMPLES = None
+
+
+def _cd_init(sample_data):
+    '''Pool initializer: keep the shared sample measurements in each worker
+    so per-reference tasks only carry the reference itself.'''
+    global _CD_SAMPLES
+    _CD_SAMPLES = sample_data
+
+
+def _cd_worker(task):
+    rname, rmeas, sample_names, count = task
+    return _cd_batch(rname, rmeas, sample_names, _CD_SAMPLES, count)
+
+
+def crossdate_pairs(refs, smps, count=10, max_workers=None):
+    '''Crossdate every distinct smp/ref pair, optionally across processes.
+
+    refs, smps - lists of Sequence. Returns the res_dict the serial double
+    loop built: {name: {other: rows}}, each unordered pair stored both ways
+    (the reverse view via _mirror_rows). Key insertion order matches the
+    serial `for ref: for smp:` walk, so the result is identical whatever the
+    worker count. Work is batched one task per reference; max_workers=1 (or a
+    small job) runs in-process.
+    '''
+    order = []          # (rname, ref_measurements, [sample_name, ...])
+    seen = set()
+    for ref in refs:
+        rname = ref.KeyCode()
+        todo = []
+        for smp in smps:
+            sname = smp.KeyCode()
+            if sname == rname or (sname, rname) in seen:
+                continue
+            seen.add((rname, sname))
+            todo.append(sname)
+        if todo:
+            order.append((rname, ref.measurements(), todo))
+
+    if not order:
+        return {}
+
+    samples = {s.KeyCode(): s.measurements() for s in smps}
+    total = sum(len(names) for _, _, names in order)
+
+    # A pool only pays off once the compute clearly beats spawn + IPC; below
+    # that stay in-process. An explicit max_workers > 1 forces the pool.
+    if max_workers is None:
+        parallel = total >= 2000 and len(order) > 1
+    else:
+        parallel = max_workers != 1
+
+    if not parallel:
+        batches = [_cd_batch(r, rm, names, samples, count)
+                   for r, rm, names in order]
+    else:
+        tasks = [(rname, rmeas, names, count)
+                 for rname, rmeas, names in order]
+        with ProcessPoolExecutor(max_workers=max_workers,
+                                 initializer=_cd_init,
+                                 initargs=(samples,)) as ex:
+            batches = list(ex.map(_cd_worker, tasks))
+
+    res_dict = {}
+    for (rname, _, _), batch in zip(order, batches):
+        for sname, crslt in batch:
+            res_dict.setdefault(rname, {})
+            res_dict.setdefault(sname, {})
+            res_dict[rname][sname] = crslt
+            res_dict[sname][rname] = _mirror_rows(crslt)
+    return res_dict
 
 
 def corellate_position(a, b):  # noqa

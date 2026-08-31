@@ -151,15 +151,11 @@ class Results(QDialog):
         self.changed = True
 
     def crossdate(self):
-        '''Crossdate samples with refs provided by user, creating result list
+        '''Crossdate samples with refs provided by user, creating result list.
+
+        res_dict = {'s1': {'s2': [corr_result], 's3': []},
+                    's2': {'s1': [], ...}, ...   }
         '''
-
-        # dict with results, after performing corellations data will be grouped
-        # accordingly to user specs
-        # dict = {'s1': {'s2': [corr_result], 's3': []},
-        #         's2': {'s1': [], ...}, ...   }
-        res_dict = {}
-
         # create list of samples and references from selected items
         refs = [val for val in self.stack.seq_from_stack(
             self.rst, self.selected[self.rst]).values()
@@ -170,32 +166,9 @@ class Results(QDialog):
             if val.Length() > 29
         ]
 
-        # MAIN JOB - takes longest to do
-        # TODO: Check if can be optimized!!!
-        for ref in refs:
-            for smp in smps:
-                # avoid crosdating same sample
-                if smp.KeyCode() == ref.KeyCode():
-                    continue
-
-                # check if corelation wasnt compute other side if do continue
-                if smp.KeyCode() in res_dict:
-                    if ref.KeyCode() in res_dict[smp.KeyCode()]:
-                        continue
-
-                crslt = classes.corellate(smp, ref, self.crl)
-                if ref.KeyCode() not in res_dict:
-                    res_dict[ref.KeyCode()] = {}
-                if smp.KeyCode() not in res_dict:
-                    res_dict[smp.KeyCode()] = {}
-
-                res_dict[ref.KeyCode()][smp.KeyCode()] = crslt
-                resr = [x[:7] + [-x[7], x[8], x[10], x[9]] for x in crslt]
-                res_dict[smp.KeyCode()][ref.KeyCode()] = resr
-
         self.refs = refs
         self.smps = smps
-        self.res_dict = res_dict
+        self.res_dict = classes.crossdate_pairs(refs, smps, self.crl)
 
     def load_result(self):
         '''Loads formated results to tableWidget for user convinience'''
