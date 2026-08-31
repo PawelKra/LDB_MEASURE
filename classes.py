@@ -1,10 +1,13 @@
 from collections import defaultdict
+import logging
 import os
 import math
 import struct
 from numpy import corrcoef as crosscoef
 from numpy import add
 from collections import Counter
+
+logger = logging.getLogger(__name__)
 
 
 def read_fh(arg):  # noqa
@@ -35,9 +38,10 @@ def read_fh(arg):  # noqa
     dateEnd = 1  # date end to set in last moment
 
     for fn in arg:
-        meas_file = open(fn, 'r')
+        with open(fn, 'r') as meas_file:
+            file_lines = meas_file.readlines()
 
-        for line in meas_file:
+        for line in file_lines:
             line = line.rstrip('\r\n\t ')
 
             if len(line) > 0:
@@ -71,8 +75,8 @@ def read_fh(arg):  # noqa
                             new_keycode = sample.KeyCode() + "(" + str(i) + ")"
                             if new_keycode not in seq_dict.keys():
                                 # update sample name and add it to dict
-                                print(
-                                    "Nadano nowa nazwe zdublowanej probie: " +
+                                logger.info(
+                                    "renamed duplicate sample to %s",
                                     new_keycode)
                                 sample.set_meta("KeyCode", new_keycode)
                                 seq_dict[sample.KeyCode()] = sample
@@ -128,7 +132,6 @@ def read_fh(arg):  # noqa
                                         ml[m].isdigit():
                                     meas_list.append(int(ml[m]))
                 beginTrig = 0
-        meas_file.close()
 
     sample.update_measurements(meas_list)  # dopisujemy measurement
     seq_dict[str(sample.KeyCode())] = sample
@@ -146,7 +149,10 @@ def read_pos(fn):
     dateEnd = 0
     measurements = []
 
-    for line in open(fn, 'r'):
+    with open(fn, 'r') as pos_file:
+        pos_lines = pos_file.readlines()
+
+    for line in pos_lines:
         line = line.rstrip('\r\n')
         if line.split(" ")[0] == "#DPI":
             sample.set_meta('DPI', line.split(" ")[1].split((","))[0])
@@ -208,9 +214,8 @@ def write_fh(fn, arg):
             out += (10 - len(seq.measurements()) % 10) * '     0'
             out += '\n'
 
-        p = open(fn, 'w')
+    with open(fn, 'w') as p:
         p.write(out)
-        p.close()
 
 
 def read_r(fn):
@@ -220,7 +225,6 @@ def read_r(fn):
     returns dict with Sequence obj without metadata becase Cracow format
     dont store them, datebegin is alway set to 1
     '''
-    meas_file = open(fn, "rb")
     sample = Sequence()
     kc = str(os.path.basename(fn).split('.')[0])
     sample.set_meta("KeyCode", kc)
@@ -230,24 +234,25 @@ def read_r(fn):
 
     i = 0
     meas_list = []
-    while i < (dl/2):
-        meas_file.seek(i*2)
-        t = struct.unpack('bb', meas_file.read(2))
+    with open(fn, "rb") as meas_file:
+        while i < (dl/2):
+            meas_file.seek(i*2)
+            t = struct.unpack('bb', meas_file.read(2))
 
-        t = (t[0]*100)+t[1]
+            t = (t[0]*100)+t[1]
 
-        if i > 2:
-            meas_list.append(t)
-        elif i == 1:
-            # zapisujemy poczatek bielu
-            if t != 0:
-                pocz = t
-        elif i == 2:
-            # Sapwood
-            if t != 0:
-                t = t - pocz
-                sample.set_meta("SapWood", t)
-        i += 1
+            if i > 2:
+                meas_list.append(t)
+            elif i == 1:
+                # zapisujemy poczatek bielu
+                if t != 0:
+                    pocz = t
+            elif i == 2:
+                # Sapwood
+                if t != 0:
+                    t = t - pocz
+                    sample.set_meta("SapWood", t)
+            i += 1
 
     sample.update_measurements(meas_list)
 
@@ -277,9 +282,8 @@ def write_r(fn, arg):
         seq += struct.pack('bb', part_1, part_2)
         i += 1
 
-    meas_file = open(fn, 'wb')
-    meas_file.write(seq)
-    meas_file.close()
+    with open(fn, 'wb') as meas_file:
+        meas_file.write(seq)
 
 
 def read_rwl(fn):
@@ -295,9 +299,10 @@ def read_rwl(fn):
     name = ''  # name of current sample
     seq_dict = {}  # dict with processed samples
 
-    meas_file = open(fn, 'r')
+    with open(fn, 'r') as meas_file:
+        rwl_lines = meas_file.readlines()
 
-    for line in meas_file:
+    for line in rwl_lines:
         line = line.rstrip('\n\r')
 
         # filter all None values from list
@@ -332,7 +337,6 @@ def read_rwl(fn):
         sample.update_measurements(meas_list[:-1])
         seq_dict[str(sample.KeyCode())] = sample
 
-    meas_file.close()
     return seq_dict
 
 
@@ -398,9 +402,8 @@ def write_rwl(fn, arg):
         else:
             write_in += "   999\n"
 
-    meas_file = open(fn, "w")
-    meas_file.write(str(write_in))
-    meas_file.close()
+    with open(fn, "w") as meas_file:
+        meas_file.write(str(write_in))
 
 
 def write_txt(fn, a):
@@ -411,9 +414,8 @@ def write_txt(fn, a):
     write_in = a.KeyCode() + "\n"
     write_in += '\n'.join(map(str, a.measurements()))
 
-    meas_file = open(fn, "w")
-    meas_file.write(write_in)
-    meas_file.close()
+    with open(fn, "w") as meas_file:
+        meas_file.write(write_in)
 
 
 def prepare_to_chart(a):
@@ -782,7 +784,7 @@ class Sequence:
         if 'KeyCode' in self.sample.keys():
             return self.sample['KeyCode']
         else:
-            print("No metadata: KeyCode")
+            logger.warning("No metadata: KeyCode")
 
     def DateBegin(self):
         if "DateEnd" in self.sample.keys() and \
@@ -790,7 +792,7 @@ class Sequence:
             if len(self.sample['measurements']) > 0:
                 self.setDateEnd(self.sample['DateEnd'])
             else:
-                print("No measurements in sample, DateBegin set to 1")
+                logger.warning("No measurements in sample, DateBegin set to 1")
 
         return int(self.sample['DateBegin'])
 
@@ -877,7 +879,7 @@ class Sequence:
             self.sample['DateBegin'] = int(val)
             self._edited = 1
         except Exception:
-            print("Only integer values are respected fot DateBegin")
+            logger.warning("Only integer values are respected for DateBegin")
 
     def setDateEnd(self, val):
         try:
@@ -890,7 +892,7 @@ class Sequence:
             else:
                 self.sample['DateEnd'] = int(val)
         except Exception:
-            print("Only integer values are respected as DateEnd")
+            logger.warning("Only integer values are respected as DateEnd")
 
     def update_measurements(self, val):
         self.sample['measurements'] = val
@@ -900,7 +902,7 @@ class Sequence:
         if str(val).isdigit():
             self.sample['measurements'].append(val)
         else:
-            print("Only numerical values are resepected as measurements!")
+            logger.warning("Only numerical values are respected as measurements")
 
     def delete_last_measurement(self):
         meas_list = self.sample['measurements']
@@ -993,10 +995,10 @@ class DataBase:
                 if s in self.base[stack].keys():
                     del self.base[stack][s]
                 else:
-                    print('No sequence by that name ('+s+')')
+                    logger.warning("No sequence by that name (%s)", s)
             return True
         else:
-            print("No stack by that name")
+            logger.warning("No stack by that name")
         return False
 
     def seq_from_stack(self, stack, selected=[]):

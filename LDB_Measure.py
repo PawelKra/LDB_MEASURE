@@ -1,3 +1,4 @@
+import logging
 import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication
 
@@ -26,7 +27,7 @@ class LDB_Form(QMainWindow,
                ):
 
     def __init__(self):
-        super(QMainWindow, self).__init__()
+        super().__init__()
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -114,6 +115,9 @@ class LDB_Form(QMainWindow,
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     app = QApplication(sys.argv)
     form = LDB_Form()
     form.show()
