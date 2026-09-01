@@ -33,6 +33,10 @@ class PanelSample:
         self.stack.clear()
         self.order = []
         self.saved = True
+        # drop any ring-edit undo / redo history - it points at the samples
+        # we just cleared
+        self._undo_stack = []
+        self._redo_stack = []
 
         QWidget.setFocus(self.ui.pushButton_new_sequence)
         self.redraw_chart()

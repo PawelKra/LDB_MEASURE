@@ -5,6 +5,9 @@ import classes
 
 
 class PanelChart:
+    # how many ring-edit steps the undo / redo stacks keep
+    _UNDO_LIMIT = 50
+
     def redraw_chart(self):
         '''redraw chart on data derived from database
         '''
@@ -108,6 +111,7 @@ class PanelChart:
         if event.button != 3:
             return
 
+        undo_stack, redo_stack = self._edit_history()
         selrows, others = self.selected_twmeas_rows()
         self.menu = QMenu(self)
         if selrows != 1:
@@ -126,59 +130,152 @@ class PanelChart:
             self.menu.addAction(addAction)
             self.menu.addAction(changeAction)
 
+        self.menu.addSeparator()
+        undoAction = QAction('Undo ring edit', self)
+        undoAction.setEnabled(bool(undo_stack))
+        undoAction.triggered.connect(self.undo_edit)
+        redoAction = QAction('Redo ring edit', self)
+        redoAction.setEnabled(bool(redo_stack))
+        redoAction.triggered.connect(self.redo_edit)
+        self.menu.addAction(undoAction)
+        self.menu.addAction(redoAction)
+
         self.menu.popup(QCursor.pos())
 
-    def delete_slot(self, event):
+    # --- ring-edit undo / redo -------------------------------------------
+
+    def _edit_history(self):
+        '''(undo_stack, redo_stack) for ring edits, created on first use.
+
+        new_sample() clears both so snapshots never outlive the samples they
+        point at.
+        '''
+        if not hasattr(self, '_undo_stack'):
+            self._undo_stack = []
+            self._redo_stack = []
+        return self._undo_stack, self._redo_stack
+
+    def _snapshot(self, name):
+        '''State of one sample that a ring edit can change, or None if the
+        sample is gone.'''
+        smp = self.stack.get('s', name)
+        if smp is None:
+            return None
+        return {
+            'name': name,
+            'measurements': list(smp.measurements()),
+            'DateBegin': smp.DateBegin(),
+        }
+
+    def _record_edit(self, before):
+        '''Push a pre-edit snapshot onto the undo stack and drop the redo
+        stack. Call only once an edit has actually changed the sample.'''
+        undo_stack, redo_stack = self._edit_history()
+        undo_stack.append(before)
+        del undo_stack[:-self._UNDO_LIMIT]     # keep it bounded
+        redo_stack.clear()
+
+    def _restore(self, snap):
+        smp = self.stack.get('s', snap['name'])
+        if smp is None:
+            return False
+        smp.update_measurements(list(snap['measurements']))
+        smp.setDateBegin(snap['DateBegin'])
+        self.saved = False
+        self.sync_db_to_twmeas()
+        return True
+
+    def undo_edit(self):
+        undo_stack, redo_stack = self._edit_history()
+        if not undo_stack:
+            self.ui.statusbar.showMessage('Nothing to undo')
+            return
+        snap = undo_stack.pop()
+        current = self._snapshot(snap['name'])
+        if current is None or not self._restore(snap):
+            self.ui.statusbar.showMessage(
+                'Cannot undo: sample %s is gone' % snap['name'])
+            return
+        redo_stack.append(current)
+        self.ui.statusbar.showMessage('Undid ring edit on ' + snap['name'])
+
+    def redo_edit(self):
+        undo_stack, redo_stack = self._edit_history()
+        if not redo_stack:
+            self.ui.statusbar.showMessage('Nothing to redo')
+            return
+        snap = redo_stack.pop()
+        current = self._snapshot(snap['name'])
+        if current is None or not self._restore(snap):
+            self.ui.statusbar.showMessage(
+                'Cannot redo: sample %s is gone' % snap['name'])
+            return
+        undo_stack.append(current)
+        self.ui.statusbar.showMessage('Redid ring edit on ' + snap['name'])
+
+    def _edit_ring(self, event, mutate, verb):
+        '''Run ``mutate(smp)`` on the one selected sample; if it changed the
+        ring list, record an undo snapshot and refresh the UI.'''
         sel, rows = self.selected_twmeas_rows()
         if sel != 1:
             return
 
-        smp = self.stack.base['s'][self.order[rows[0]]]
-        smp.delete_year_measurement(int(round(event.xdata, 0)))
+        name = self.order[rows[0]]
+        before = self._snapshot(name)
+        if before is None:
+            return
+        smp = self.stack.get('s', name)
+        mutate(smp)
+        if list(smp.measurements()) == before['measurements']:
+            return                             # year out of range / no change
+        self._record_edit(before)
         self.saved = False
         self.sync_db_to_twmeas()
         self.ui.statusbar.showMessage(
-            'Deleted increment from '+smp.KeyCode() +
-            '(at year '+str(int(round(event.xdata)))+')')
+            '%s increment in %s (at year %d)'
+            % (verb, name, int(round(event.xdata))))
+
+    def delete_slot(self, event):
+        year = int(round(event.xdata, 0))
+        self._edit_ring(
+            event, lambda smp: smp.delete_year_measurement(year), 'Deleted')
 
     def add_slot(self, event):
         sel, rows = self.selected_twmeas_rows()
         if sel != 1:
             return
 
-        smp = self.stack.base['s'][self.order[rows[0]]]
-        val = smp.measure_from_year(int(round(event.xdata, 0)))
+        smp = self.stack.get('s', self.order[rows[0]])
+        if smp is None:
+            return
+        year = int(round(event.xdata, 0))
+        val = smp.measure_from_year(year)
         val, ok = QInputDialog.getInt(
             self, 'Add value in year', 'Value in micrometers (mm*100):',
             value=val, min=1, max=99999, step=1)
         if ok and int(val) > 0:
-            smp = self.stack.base['s'][self.order[rows[0]]]
-            smp.add_year_measurement(int(round(event.xdata, 0)), val)
-            self.saved = False
-            self.sync_db_to_twmeas()
-            self.ui.statusbar.showMessage(
-                'Added increment to '+smp.KeyCode() +
-                '(at year '+str(int(round(event.xdata)))+')')
+            self._edit_ring(
+                event,
+                lambda smp: smp.add_year_measurement(year, val), 'Added')
 
     def change_slot(self, event):
         sel, rows = self.selected_twmeas_rows()
         if sel != 1:
             return
 
-        smp = self.stack.base['s'][self.order[rows[0]]]
-        val = smp.measure_from_year(int(round(event.xdata, 0)))
+        smp = self.stack.get('s', self.order[rows[0]])
+        if smp is None:
+            return
+        year = int(round(event.xdata, 0))
+        val = smp.measure_from_year(year)
         val, ok = QInputDialog.getInt(
             self, 'Change increment', 'Value in micrometers (mm*100):',
             value=val, min=1, max=99999, step=1)
         if ok and int(val) > 0:
-            smp.update_year_measurement(
-                int(round(event.xdata, 0)), int(val)
-            )
-            self.saved = False
-            self.sync_db_to_twmeas()
-            self.ui.statusbar.showMessage(
-                'Changed increment in '+smp.KeyCode() +
-                '(at year '+str(int(round(event.xdata)))+')')
+            self._edit_ring(
+                event,
+                lambda smp: smp.update_year_measurement(year, int(val)),
+                'Changed')
 
     def onMouseMove(self, event):
         if event.xdata is None:

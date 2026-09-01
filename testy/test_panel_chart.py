@@ -100,21 +100,51 @@ def test_stats_box_only_with_one_selection_and_more_than_one_sample(
 
 # --- right-click context menu --------------------------------------
 
+def _menu_labels(win):
+    return [a.text() for a in win.menu.actions() if not a.isSeparator()]
+
+
+def _menu_action(win, text):
+    return next(a for a in win.menu.actions() if a.text() == text)
+
+
 def test_right_click_with_one_row_offers_edit_actions(
         loaded_window, select_rows, mpl_event):
     select_rows(loaded_window.ui.tableWidget_meas, 1)
 
     loaded_window.mouseClick(mpl_event(button=3, xdata=180))
 
-    labels = [a.text() for a in loaded_window.menu.actions()]
-    assert labels == ['Delete', 'Add', 'Modify']
+    assert _menu_labels(loaded_window)[:3] == ['Delete', 'Add', 'Modify']
 
 
 def test_right_click_with_no_selection_shows_reminder(loaded_window, mpl_event):
     loaded_window.mouseClick(mpl_event(button=3, xdata=180))
 
-    labels = [a.text() for a in loaded_window.menu.actions()]
-    assert len(labels) == 1 and 'only one sample' in labels[0]
+    labels = _menu_labels(loaded_window)
+    assert 'only one sample' in labels[0]
+    # undo / redo are still offered, just disabled with no history
+    assert labels[1:] == ['Undo ring edit', 'Redo ring edit']
+
+
+def test_undo_redo_actions_disabled_until_there_is_history(
+        loaded_window, select_rows, mpl_event):
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+
+    loaded_window.mouseClick(mpl_event(button=3, xdata=180))
+    assert _menu_action(loaded_window, 'Undo ring edit').isEnabled() is False
+    assert _menu_action(loaded_window, 'Redo ring edit').isEnabled() is False
+
+    loaded_window.delete_slot(mpl_event(xdata=180))
+
+    loaded_window.mouseClick(mpl_event(button=3, xdata=180))
+    assert _menu_action(loaded_window, 'Undo ring edit').isEnabled() is True
+    assert _menu_action(loaded_window, 'Redo ring edit').isEnabled() is False
+
+    loaded_window.undo_edit()
+
+    loaded_window.mouseClick(mpl_event(button=3, xdata=180))
+    assert _menu_action(loaded_window, 'Undo ring edit').isEnabled() is False
+    assert _menu_action(loaded_window, 'Redo ring edit').isEnabled() is True
 
 
 def test_left_click_on_chart_opens_no_menu(loaded_window, mpl_event):
@@ -204,3 +234,105 @@ def test_edit_slots_need_exactly_one_selection(loaded_window, select_rows,
     loaded_window.delete_slot(mpl_event(xdata=180))
 
     assert r1.Length() == n0                  # nothing happened
+
+
+# --- undo / redo of ring edits ---------------------------------------
+
+def test_undo_reverts_a_ring_delete(loaded_window, select_rows, mpl_event):
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    r1 = loaded_window.stack.base['s']['R1']
+    before = list(r1.measurements())
+
+    loaded_window.delete_slot(mpl_event(xdata=180))
+    assert list(r1.measurements()) != before
+
+    loaded_window.undo_edit()
+    assert list(r1.measurements()) == before
+    assert loaded_window.saved is False
+
+
+def test_redo_reapplies_an_undone_edit(loaded_window, select_rows, mpl_event):
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    r1 = loaded_window.stack.base['s']['R1']
+
+    loaded_window.delete_slot(mpl_event(xdata=180))
+    after_delete = list(r1.measurements())
+
+    loaded_window.undo_edit()
+    loaded_window.redo_edit()
+    assert list(r1.measurements()) == after_delete
+
+
+def test_undo_then_new_edit_clears_redo(loaded_window, select_rows, mpl_event,
+                                        no_modals):
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    r1 = loaded_window.stack.base['s']['R1']
+
+    loaded_window.delete_slot(mpl_event(xdata=180))
+    loaded_window.undo_edit()
+    assert loaded_window._redo_stack                      # redo available
+
+    no_modals.int_value = 999
+    loaded_window.change_slot(mpl_event(xdata=181))
+    assert loaded_window._redo_stack == []                # a new edit drops it
+
+    n_undo = len(loaded_window._undo_stack)
+    loaded_window.redo_edit()                             # nothing to redo
+    assert len(loaded_window._undo_stack) == n_undo
+    assert r1.measure_from_year(181) == 999
+
+
+def test_undo_walks_back_several_edits_across_samples(loaded_window,
+                                                     select_rows, mpl_event):
+    r1 = loaded_window.stack.base['s']['R1']
+    r2 = loaded_window.stack.base['s']['R2']
+    r1_before, r2_before = list(r1.measurements()), list(r2.measurements())
+
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    loaded_window.delete_slot(mpl_event(xdata=180))
+    select_rows(loaded_window.ui.tableWidget_meas, 1)
+    loaded_window.delete_slot(mpl_event(xdata=r2.DateBegin() + 2))
+
+    assert list(r1.measurements()) != r1_before
+    assert list(r2.measurements()) != r2_before
+
+    loaded_window.undo_edit()                        # undoes the R2 delete
+    assert list(r2.measurements()) == r2_before
+    assert list(r1.measurements()) != r1_before
+
+    loaded_window.undo_edit()                        # undoes the R1 delete
+    assert list(r1.measurements()) == r1_before
+
+
+def test_undo_with_no_history_is_a_harmless_noop(loaded_window):
+    loaded_window.undo_edit()
+    loaded_window.redo_edit()
+    assert 'undo' in loaded_window.ui.statusbar.currentMessage().lower() \
+        or 'redo' in loaded_window.ui.statusbar.currentMessage().lower()
+
+
+def test_new_sample_clears_the_undo_history(loaded_window, select_rows,
+                                            mpl_event, no_modals):
+    from PyQt6.QtWidgets import QMessageBox
+
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    loaded_window.delete_slot(mpl_event(xdata=180))
+    assert loaded_window._undo_stack
+
+    no_modals.question_answer = QMessageBox.StandardButton.No   # discard
+    loaded_window.new_sample()
+    assert loaded_window._undo_stack == []
+    assert loaded_window._redo_stack == []
+
+
+def test_undo_stack_is_bounded(loaded_window, select_rows, mpl_event,
+                               no_modals):
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    r1 = loaded_window.stack.base['s']['R1']
+    year = r1.DateBegin() + 1
+
+    for i in range(loaded_window._UNDO_LIMIT + 10):
+        no_modals.int_value = 100 + i
+        loaded_window.change_slot(mpl_event(xdata=year))
+
+    assert len(loaded_window._undo_stack) == loaded_window._UNDO_LIMIT
