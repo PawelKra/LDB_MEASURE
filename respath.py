@@ -20,10 +20,15 @@ CONFIG_DIR_ENV = "LDB_MEASURE_CONFIG_DIR"
 
 
 def resource_path(rel):
-    """Absolute path to a read-only resource shipped with the app."""
+    """Absolute, native path to a read-only resource shipped with the app.
+
+    ``rel`` is always given with ``/`` separators; normpath collapses those
+    to ``os.sep`` so the result is a canonical path on Windows too (a bare
+    ``os.path.join`` would leave ``base\\ikonki/UP.png``).
+    """
     base = getattr(sys, "_MEIPASS", None) or os.path.dirname(
         os.path.abspath(__file__))
-    return os.path.join(base, rel)
+    return os.path.normpath(os.path.join(base, *rel.split("/")))
 
 
 def user_config_dir():
