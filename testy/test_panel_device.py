@@ -65,6 +65,22 @@ def test_set_sapwood_marks_ring_and_end_stores_a_ring_count(
     assert main_window.sapwood_beg == 0                  # reset for next session
 
 
+def test_end_sequence_shows_the_sapwood_count_in_the_measurements_table(
+        main_window, qtbot, fake_counter):
+    qtbot.mouseClick(main_window.ui.pushButton_new_sequence,
+                     Qt.MouseButton.LeftButton)
+    _measure(main_window, qtbot, fake_counter, 10, 11, 12, 13, 14, 15)
+    qtbot.mouseClick(main_window.ui.pushButton_sapwood_beg,
+                     Qt.MouseButton.LeftButton)          # ring 6 = first sapwood
+    _measure(main_window, qtbot, fake_counter, 16, 17, 18, 19)   # -> 10 rings
+
+    qtbot.mouseClick(main_window.ui.pushButton_end_measures,
+                     Qt.MouseButton.LeftButton)
+
+    # column 4 is SapWood in def_sample_headers; save_sample re-reads it
+    assert main_window.ui.tableWidget_meas.item(0, 4).text() == '5'
+
+
 def test_sapwood_count_typed_directly_is_stored_as_is(
         main_window, qtbot, fake_counter):
     qtbot.mouseClick(main_window.ui.pushButton_new_sequence,

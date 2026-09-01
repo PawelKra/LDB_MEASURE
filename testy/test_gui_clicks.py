@@ -121,8 +121,11 @@ def test_full_measuring_session_by_clicks(
     assert main_window.stack['s']['R1'].measurements() == [120, 135, 128, 140, 150]
     # rings 2,3,4,5 are sapwood -> a count of 4
     assert main_window.stack['s']['R1'].SapWood() == 4
-    # chart shows the finished curve (+ the cursor axvline)
-    assert chart_lines(main_window) == 2
+    # end_sequence refreshes the chart: finished curve + cursor axvline +
+    # the gray sapwood trace now that a count is stored
+    assert chart_lines(main_window) == 3
+    # ...and the count is surfaced in the measurements table (col 4 = SapWood)
+    assert main_window.ui.tableWidget_meas.item(0, 4).text() == '4'
 
 
 def test_read_measure_ignored_when_no_movement(

@@ -42,18 +42,22 @@ class PanelDevice:
     def end_sequence(self):
         '''ends measuring session, set opened to false
         '''
+        seq = self.opened
         txt = self.ui.lineEdit_sapwood.text()
         if self.sapwood_beg > 0 and txt.isdigit():
             # field holds the first-sapwood-ring number: store the ring count
             beg = int(txt)
-            self.opened.set_meta(
-                'SapWood', max(0, self.opened.Length() - beg + 1))
+            seq.set_meta('SapWood', max(0, seq.Length() - beg + 1))
         elif txt.isdigit():
             # typed straight in: already a sapwood ring count
-            self.opened.set_meta('SapWood', int(txt))
+            seq.set_meta('SapWood', int(txt))
         self.sapwood_beg = 0
         self.opened = False
         self.clear_device_panel()
+        # surface the freshly stored SapWood count in the measurements table
+        # (and redraw the chart). save_sample re-reads column 4 from that
+        # table, so without this the value is lost on the next save.
+        self.sync_db_to_twmeas([seq.KeyCode()])
 
     @UserDecorators.should_be_opened
     @UserDecorators.select_measure_button
