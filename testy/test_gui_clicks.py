@@ -259,6 +259,36 @@ def test_delete_last_measure_on_empty_open_sequence_is_safe(
     assert main_window.opened.measurements() == []          # no IndexError
 
 
+# --- settings persistence (packaging) ----------------------------
+
+def test_fresh_install_points_the_user_at_settings(main_window):
+    # _isolated_user_config gave us an empty config dir
+    assert main_window.setts.loaded is False
+    assert 'Settings' in main_window.ui.statusbar.currentMessage()
+
+
+def test_settings_saved_in_the_dialog_persist_to_the_user_dir(
+        main_window, qtbot):
+    import os
+    import respath
+    from config import ReadConfig
+    from sett_window import SettWindow
+
+    dlg = SettWindow(main_window.setts)
+    qtbot.addWidget(dlg)
+    dlg.ui.lineEdit_com.setText('COM9')
+    dlg.ui.lineEdit_imp.setText('640')
+    dlg.write_changes(trun=False)              # -> setts.write_config()
+
+    cfg = respath.user_config_file()
+    assert os.path.isfile(cfg)                 # written to the app-data dir
+
+    reread = ReadConfig(cfg)
+    assert reread.loaded is True
+    assert reread.port == 'COM9'
+    assert reread.impulses == 640
+
+
 # --- table <-> chart wiring -------------------------------------
 
 def test_selecting_one_row_draws_stats_box(loaded_window, select_rows):

@@ -1,10 +1,12 @@
 import logging
+import os
 import sys
 from PyQt6.QtWidgets import QMainWindow, QApplication
 
 from ui_LDB_Measure import Ui_MainWindow
 import classes
 from config import ReadConfig
+from respath import resource_path, user_config_file
 from devices import Device
 from user_decorators import UserDecorators
 from panel_sample import PanelSample
@@ -46,8 +48,9 @@ class LDB_Form(QMainWindow,
         self.sapwood_beg = 0
         # is current sample is saved, and when close program, loose data
         self.saved = True
-        # setting readed from file
-        self.setts = ReadConfig('settings.txt')
+        # settings read from the user's writable config dir (see respath.py);
+        # absent on a fresh install -> ReadConfig falls back to safe defaults
+        self.setts = ReadConfig(user_config_file())
         # list with order of samples in tableWidget_measures
         self.order = []
         # list with path to test case sample files
@@ -93,7 +96,13 @@ class LDB_Form(QMainWindow,
 
         # initialize all structures and set program ready to go
         self.new_sample()
-        self.ui.statusbar.showMessage('Ready to work!')
+        if self.setts.loaded:
+            self.ui.statusbar.showMessage('Ready to work!')
+        else:
+            # fresh install: no counter port / device type set yet
+            self.ui.statusbar.showMessage(
+                'No settings found - open Settings to set the counter '
+                'port / device type')
 
     def clear_forms(self):
         '''Clear all forms in MainWindows and sets all for new sample
@@ -122,10 +131,26 @@ class LDB_Form(QMainWindow,
 
 
 if __name__ == "__main__":
+    # must be first: a frozen build re-executes this file in every
+    # crossdate worker process (classes.crossdate_pairs) and without this it
+    # would relaunch the whole GUI instead
+    import multiprocessing
+    multiprocessing.freeze_support()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     app = QApplication(sys.argv)
+    app.setOrganizationName('LDB')
+    app.setApplicationName('LDB_Measure')
+
+    # ship our own monospace so the crossdate report renders the same on a
+    # machine that has no "Monospace" family installed
+    font_file = resource_path('Monospace.ttf')
+    if os.path.isfile(font_file):
+        from PyQt6.QtGui import QFontDatabase
+        QFontDatabase.addApplicationFont(font_file)
+
     form = LDB_Form()
     form.show()
     app.exec()

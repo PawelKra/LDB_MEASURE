@@ -31,6 +31,24 @@ def _run_from_repo_root():
         os.chdir(old)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_user_config(tmp_path_factory):
+    """Point respath.user_config_dir() at a fresh throwaway dir for every test
+    so the suite never touches the developer's real settings.txt
+    (~/Library/Application Support/LDB_Measure, %APPDATA%\\LDB_Measure) and no
+    test inherits another test's saved config."""
+    cfg = tmp_path_factory.mktemp("ldb_config")
+    old = os.environ.get("LDB_MEASURE_CONFIG_DIR")
+    os.environ["LDB_MEASURE_CONFIG_DIR"] = str(cfg)
+    try:
+        yield cfg
+    finally:
+        if old is None:
+            os.environ.pop("LDB_MEASURE_CONFIG_DIR", None)
+        else:
+            os.environ["LDB_MEASURE_CONFIG_DIR"] = old
+
+
 @pytest.fixture
 def data_dir():
     """Path to ``testy/data`` (golden JSON, multi.rwl, MIL fixtures)."""

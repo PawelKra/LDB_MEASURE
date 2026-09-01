@@ -10,6 +10,7 @@ class ReadConfig:
         self.impulses = 1
 
         self.conf_file = conf_file
+        self.loaded = False        # True once an existing file has been read
 
         # headers for every sequence
         self.def_sample_headers = [
@@ -33,6 +34,7 @@ class ReadConfig:
 
         if not os.path.isfile(conf_file):
             return
+        self.loaded = True
 
         with open(conf_file, 'r') as fh:
             for raw in fh:
@@ -54,7 +56,8 @@ class ReadConfig:
                     self.dev = tt[1]
 
     def write_config(self):
-        '''Saves stored config to file in main catalog'''
+        '''Save the current settings back to ``self.conf_file`` (an absolute
+        path in the user's app-data dir for a normal run).'''
         out = '\n'.join([
             'LICZ|'+self.dev,
             'PORT|'+self.port,
@@ -63,7 +66,7 @@ class ReadConfig:
             'S|'+self.def_cat,
         ])
 
-        cat = os.path.join(os.path.dirname(__file__),
-                           self.conf_file)
-        with open(cat, 'w') as fl:
+        os.makedirs(os.path.dirname(self.conf_file) or '.', exist_ok=True)
+        with open(self.conf_file, 'w') as fl:
             fl.write(out)
+        self.loaded = True
