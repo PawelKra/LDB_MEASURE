@@ -164,6 +164,28 @@ def test_position_cc_matches_direct_corr_on_the_shared_overlap(shift):
     assert res[0] == expected
 
 
+def test_position_overlap_across_the_bc_ad_boundary():
+    """A 60-ring overlap that straddles the missing year 0 must not crash
+    (the raw `end - begin` counted a phantom year, so x / y came out one
+    apart and np broke on the GLK compare) and must give the same row as the
+    identical rings placed entirely in the AD range.
+    """
+    n = 90
+    xo = wave(n, 0.0)
+    yo = wave(n, 1.4)
+    # older starts 30 rings before younger -> 60-ring overlap over the boundary
+    boundary = classes.corellate_position(
+        seq('Y', yo, date_begin=-10), seq('O', xo, date_begin=-40))
+    all_ad = classes.corellate_position(
+        seq('Y', yo, date_begin=1030), seq('O', xo, date_begin=1000))
+
+    assert boundary != ['xxx'] * 7
+    assert boundary == all_ad
+    # and the alignment is symmetric across the boundary too
+    assert classes.corellate_position(
+        seq('O', xo, date_begin=-40), seq('Y', yo, date_begin=-10)) == boundary
+
+
 # --------------------------------------------------------------------------
 # the numpy pieces the module actually relies on
 # --------------------------------------------------------------------------

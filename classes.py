@@ -840,8 +840,12 @@ def corellate_position(a, b):  # noqa
         younger, older = b, a
 
     end_date = min(int(younger.DateEnd()), int(older.DateEnd()))
-    offset = abs(older.DateBegin() - younger.DateBegin())
-    length = end_date - younger.DateBegin() + 1
+    # ring counts, not raw year differences: there is no year 0, so across the
+    # BC/AD boundary `end - begin` is one too big and x / y below would come
+    # out different lengths -> a crash in redraw_chart (e.g. F3 near the era
+    # boundary shifting a sample onto it).
+    offset = _offset_of_year(younger.DateBegin(), older.DateBegin())
+    length = _offset_of_year(end_date, younger.DateBegin()) + 1
 
     # less than 30 overlapping years - no statistics
     if length < 30:
@@ -850,6 +854,10 @@ def corellate_position(a, b):  # noqa
     x = np.asarray(younger.measurements()[:length], dtype=np.float64)
     y = np.asarray(older.measurements()[offset:offset + length],
                    dtype=np.float64)
+    # belt and braces: a stray off-by-one must never abort the app from the
+    # paint path - trim to the shared length instead.
+    n = min(x.shape[0], y.shape[0])
+    x, y = x[:n], y[:n]
 
     _, bpx, hx, gx = _standardize(x)
     _, bpy, hy, gy = _standardize(y)
