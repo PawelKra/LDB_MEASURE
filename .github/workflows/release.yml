@@ -45,11 +45,7 @@ jobs:
           pip install pyinstaller==6.11.1
 
       - name: Run test suite
-        # test_corellate_is_bounded is a known pre-existing failure (a numpy
-        # RuntimeWarning promoted to error by pytest.ini); tracked separately.
-        run: >
-          python -m pytest testy/ -q
-          --deselect testy/test_properties.py::test_corellate_is_bounded_and_never_raises
+        run: python -m pytest testy/ -q
 
       - name: Build with PyInstaller
         env:

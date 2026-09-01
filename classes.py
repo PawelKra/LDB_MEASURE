@@ -60,9 +60,9 @@ def shift_year(year, delta):
 def _fast_r(x, y):
     '''Pearson r of two equal-length float64 arrays.
 
-    Returns nan for a degenerate input (too short, or zero variance) - a
-    constant series still emits numpy's RuntimeWarning on the divide, so the
-    behaviour matches numpy.corrcoef without its per-call object overhead.
+    Returns nan for a degenerate input (too short, or a zero-variance /
+    constant series) without going through numpy's divide-by-zero
+    RuntimeWarning - pytest.ini turns those into errors.
     '''
     if x.shape[0] < 2:
         return float('nan')
@@ -71,7 +71,10 @@ def _fast_r(x, y):
     sxy = np.dot(xm, ym)
     sxx = np.dot(xm, xm)
     syy = np.dot(ym, ym)
-    return float(sxy / np.sqrt(sxx * syy))
+    denom = sxx * syy
+    if denom <= 0.0:
+        return float('nan')
+    return float(sxy / math.sqrt(denom))
 
 
 def _standardize(meas):
@@ -150,13 +153,19 @@ def _prefix(v):
 def _r_curve(n, sx, sxx, sy, syy, sxy):
     '''Pearson r for every lag from centred window moments (arrays).
 
-    A constant window has zero variance -> 0/0 -> nan for that lag, matching
-    numpy.corrcoef (which also emits the RuntimeWarning - see
-    test_corellate_edge).'''
-    cov = sxy - sx * sy / n
+    A zero-variance window (constant rings) has no defined correlation and
+    comes back as nan. Catastrophic cancellation can leave such a window's
+    variance product a hair below zero, so guard the sqrt / divide rather
+    than let numpy raise a RuntimeWarning (pytest.ini promotes those to
+    errors); see test_corellate_edge.'''
+    cov = np.asarray(sxy - sx * sy / n, dtype=np.float64)
     vx = sxx - sx * sx / n
     vy = syy - sy * sy / n
-    return cov / np.sqrt(vx * vy)
+    denom = np.asarray(vx * vy, dtype=np.float64)
+    r = np.full(denom.shape, np.nan)
+    ok = denom > 0.0
+    r[ok] = cov[ok] / np.sqrt(denom[ok])
+    return r
 
 
 def _offset_curves(af, bf, bpa, bpb, ha, hb, ga, gb, lags):

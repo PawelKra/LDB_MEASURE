@@ -3,14 +3,13 @@
 These pin *current* behaviour so the P1/P2 vectorisation has a baseline; they
 are not an endorsement of it.  Two rough edges are recorded on purpose:
 
-* a constant ring series makes ``numpy.corrcoef`` return nan with a
-  ``RuntimeWarning`` - LDB neither guards nor crashes;
+* a constant ring series has no defined correlation - the coefficient comes
+  back as nan, and the divide is guarded so no ``RuntimeWarning`` escapes
+  (pytest.ini would promote one to an error);
 * a sample shorter than the offset window silently yields no results.
 """
 import math
-
-import numpy as np
-import pytest
+import warnings
 
 import classes
 
@@ -24,22 +23,24 @@ def seq(name, data):
                              'measurements': list(data)})
 
 
-def test_constant_series_warns_and_yields_nan_not_a_crash():
+def test_constant_series_yields_nan_without_a_warning():
     const = seq('C', [120.0] * 80)
     other = seq('O', ramp(80))
-    with pytest.warns(RuntimeWarning):
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')          # any RuntimeWarning -> fail
         rows = classes.corellate(const, other, count=3)
     assert rows
-    # crosscoef degenerates to nan and propagates
+    # crosscoef has no defined value for a constant window -> nan, propagated
     assert math.isnan(rows[0][0])
 
 
-def test_constant_series_in_corellate_position_also_warns():
+def test_constant_series_in_corellate_position_also_yields_nan_no_warning():
     const = classes.Sequence({'KeyCode': 'C', 'DateBegin': 1000,
                               'measurements': [90.0] * 60})
     other = classes.Sequence({'KeyCode': 'O', 'DateBegin': 1000,
                               'measurements': ramp(60)})
-    with pytest.warns(RuntimeWarning):
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
         res = classes.corellate_position(const, other)
     assert math.isnan(res[0])
 
