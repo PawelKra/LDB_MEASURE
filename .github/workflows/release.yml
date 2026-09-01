@@ -22,10 +22,12 @@ jobs:
         include:
           - os: windows-latest
             asset: LDB_Measure-windows-x64.exe
-          - os: macos-13            # Intel
-            asset: LDB_Measure-macos-x86_64.dmg
           - os: macos-14            # Apple Silicon
             asset: LDB_Measure-macos-arm64.dmg
+          # Intel macOS (macos-13) is intentionally not built - GitHub's
+          # Intel runners are being retired and sit unschedulable for hours.
+          # Re-add `- os: macos-13 / asset: LDB_Measure-macos-x86_64.dmg`
+          # here if you need an x86_64 .dmg.
     runs-on: ${{ matrix.os }}
     env:
       QT_QPA_PLATFORM: offscreen

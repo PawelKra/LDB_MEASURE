@@ -23,7 +23,9 @@ Download the file for your system from the repository's **Releases** page:
 |------|--------|
 | `LDB_Measure-windows-x64.exe`  | Windows 10 / 11, 64-bit |
 | `LDB_Measure-macos-arm64.dmg`  | Apple Silicon Macs (M1 and later) |
-| `LDB_Measure-macos-x86_64.dmg` | Intel Macs |
+
+Intel Macs are not covered by a prebuilt binary - build it locally (see
+*Building the standalone apps*) or run the app from source.
 
 The builds are **not code-signed**, so the first launch needs one extra step:
 
@@ -168,18 +170,19 @@ Supported counters:
 | artifact | runner |
 |----------|--------|
 | `LDB_Measure-windows-x64.exe`  | `windows-latest` |
-| `LDB_Measure-macos-x86_64.dmg` | `macos-13` (Intel) |
 | `LDB_Measure-macos-arm64.dmg`  | `macos-14` (Apple Silicon) |
 
 * **Tag `v*`** (`git tag v0.1.0 && git push origin v0.1.0`) - runs the tests,
-  builds all three, and attaches them to a **draft** GitHub Release for you to
+  builds both, and attaches them to a **draft** GitHub Release for you to
   check and publish.
-* **Run workflow** (Actions tab, `workflow_dispatch`) - builds the three
+* **Run workflow** (Actions tab, `workflow_dispatch`) - builds the two
   artifacts without making a release; use it for a dry run.
 * **Pull request** - builds only, as a smoke check.
 
-PyInstaller does not cross-compile and PyQt6 has no universal2 wheels, so the
-two Mac architectures are built on separate runners - three files, not two.
+PyInstaller does not cross-compile, so each target is built on its own runner.
+Intel macOS (`macos-13`) is left out - GitHub's Intel runners are being retired
+and were unschedulable for hours; add it back to the matrix in
+`release.yml` if you need an `x86_64` `.dmg`.
 
 ### Locally
 
