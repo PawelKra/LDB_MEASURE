@@ -216,6 +216,49 @@ def test_click_crossdate_selected_runs_crossdating(
     assert main_window.ui.tableWidget_meas.rowCount() == 3   # nothing lost
 
 
+# --- clicking anything on an empty window must not abort -------------
+
+# every toolbar button wired up in LDB_Measure.__init__
+_ALL_BUTTONS = [
+    "pushButton_new_sample", "pushButton_load_sample", "pushButton_save_sample",
+    "pushButton_choose_dir", "pushButton_settings", "pushButton_new_sequence",
+    "pushButton_continue_sequence", "pushButton_delete_sequence",
+    "pushButton_cor_selected", "pushButton_mean_selected",
+    "pushButton_read_measure", "pushButton_sapwood_beg",
+    "pushButton_delete_measure", "pushButton_end_measures", "pushButton_clean",
+]
+
+
+@pytest.mark.parametrize("btn", _ALL_BUTTONS)
+def test_button_on_fresh_window_does_not_crash(main_window, qtbot, no_modals,
+                                               btn):
+    # nothing loaded, no measuring session, no selection
+    click(qtbot, getattr(main_window.ui, btn))
+    assert main_window.isVisible()
+
+
+def test_mean_from_selected_needs_at_least_two(loaded_window, qtbot,
+                                               select_rows):
+    # no selection -> message, no crash, no mean produced
+    click(qtbot, loaded_window.ui.pushButton_mean_selected)
+    assert not any(n.startswith('M') for n in loaded_window.order)
+
+    # one selection -> still refused
+    select_rows(loaded_window.ui.tableWidget_meas, 0)
+    click(qtbot, loaded_window.ui.pushButton_mean_selected)
+    assert not any(n.startswith('M') for n in loaded_window.order)
+
+
+def test_delete_last_measure_on_empty_open_sequence_is_safe(
+        main_window, qtbot, fake_counter):
+    click(qtbot, main_window.ui.pushButton_new_sequence)   # session open, 0 rings
+    assert main_window.opened.measurements() == []
+
+    click(qtbot, main_window.ui.pushButton_delete_measure)
+
+    assert main_window.opened.measurements() == []          # no IndexError
+
+
 # --- table <-> chart wiring -------------------------------------
 
 def test_selecting_one_row_draws_stats_box(loaded_window, select_rows):

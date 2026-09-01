@@ -1186,6 +1186,9 @@ class DataBase:
         '''
 
         seqs = self.seq_from_stack(stack, samps)
+        if not seqs:
+            raise ValueError(
+                'calculate_mean: no matching samples in stack %r' % stack)
         miny = min([x.DateBegin() for x in seqs.values()])
         maxy = max([x.DateEnd() for x in seqs.values()])
 

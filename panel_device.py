@@ -32,6 +32,8 @@ class PanelDevice:
     def delete_last_measure(self):
         '''deletes last measure from current sequence, redraw textEdit_meas
         '''
+        if not self.opened.measurements():
+            return
         self.opened.measurements().pop()
         self.update_textedit_meas()
         self.sync_db_to_twmeas()

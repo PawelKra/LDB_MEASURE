@@ -98,6 +98,11 @@ class PanelMeasurements:
         adds new sequence to database
         '''
         selected, rows = self.selected_twmeas_rows()
+        if selected < 2:
+            msgBox = QMessageBox()
+            msgBox.setText('Select at least two samples to average.')
+            msgBox.exec()
+            return
         names = [self.ui.tableWidget_meas.item(i, 0).text() for i in rows]
         mean = self.stack.calculate_mean('s', names)
         mean.set_meta('KeyCode', 'M'+str(self.nextM()))
