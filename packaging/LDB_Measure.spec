@@ -16,6 +16,8 @@ import os
 import sys
 from pathlib import Path
 
+from PyInstaller.utils.hooks import collect_all
+
 ROOT = Path(SPECPATH).resolve().parent          # SPECPATH == <repo>/packaging
 
 _v = os.environ.get("LDB_VERSION", "0.0.0")
@@ -26,6 +28,7 @@ datas = [
     (str(ROOT / "ikonki"), "ikonki"),
     (str(ROOT / "Monospace.ttf"), "."),
 ]
+binaries = []
 
 # pyserial picks its backend at import time by platform; name every one so the
 # frozen build keeps them all. minimalmodbus + the mpl Qt backend are imported
@@ -40,12 +43,20 @@ hiddenimports = [
     "matplotlib.backends.backend_qtagg",
 ]
 
+# numpy 2.x (numpy._core.*) and matplotlib (mpl-data, backends) are not fully
+# picked up by the stock hooks on a clean build - pull everything.
+for _pkg in ("numpy", "matplotlib"):
+    _d, _b, _h = collect_all(_pkg)
+    datas += _d
+    binaries += _b
+    hiddenimports += _h
+
 excludes = ["tkinter", "pytest", "_pytest", "pytest_qt", "hypothesis"]
 
 a = Analysis(
     [str(ROOT / "LDB_Measure.py")],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
