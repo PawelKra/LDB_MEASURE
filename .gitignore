@@ -17,3 +17,8 @@ dane_test/test_save_sample*
 dane_test/save_test_*
 dane_test/result.txt
 dane_test/test_raport_save.txt
+
+# PyInstaller build output
+/build/
+/dist/
+*.dmg
